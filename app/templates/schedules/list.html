@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Schedules · Payroll Scheduler{% endblock %}
+{% block content %}
+<section class="page-header">
+    <div>
+        <h1 class="page-title">Payroll Runs</h1>
+        <p>Review historical schedules, totals, and frequency distribution.</p>
+    </div>
+    <div>
+        <a class="button" href="/schedules/new">Run Payroll</a>
+    </div>
+</section>
+
+<section class="card" style="margin-bottom: 24px;">
+    <h2>History</h2>
+    <form class="filter-bar" method="get" style="margin-bottom: 18px;">
+        <div class="filter-group">
+            <label for="filter-month">Month</label>
+            <input id="filter-month" name="month" type="month" value="{{ filters.month }}" />
+        </div>
+        <div class="filter-actions">
+            <button class="button" type="submit">Apply</button>
+            <a class="button secondary" href="/schedules">Reset</a>
+        </div>
+    </form>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Created</th>
+                <th>Cycle</th>
+                <th>Currency</th>
+                <th>Models Paid</th>
+                <th>Total Payout</th>
+                <th>Frequencies</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for run in runs %}
+            <tr>
+                <td>{{ run.created_at.strftime('%m/%d/%Y') }}</td>
+                <td>{{ '%02d/%04d'|format(run.target_month, run.target_year) }}</td>
+                <td>{{ run.currency }}</td>
+                <td>{{ run.summary_models_paid }}</td>
+                <td>{{ '%.2f'|format(run.summary_total_payout) }}</td>
+                <td>
+                    {% for name, count in run.frequency_counts.items() %}
+                        {{ name }}: {{ count }}{% if not loop.last %}, {% endif %}
+                    {% else %}
+                        None
+                    {% endfor %}
+                </td>
+                <td class="actions">
+                    <a class="link-button" href="/schedules/{{ run.id }}">Open</a>
+                    <form method="post" action="/schedules/{{ run.id }}/delete" onsubmit="return confirm('Delete this payroll run?');">
+                        <button class="link-button" type="submit">Delete</button>
+                    </form>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td class="empty-state" colspan="7">Run payroll to generate your first schedule.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</section>
+{% endblock %}

@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Run Payroll · Payroll Scheduler{% endblock %}
+{% block content %}
+<section class="page-header">
+    <div>
+        <h1 class="page-title">Run Payroll</h1>
+        <p>Choose the cycle, currency, and export destination for this schedule run.</p>
+    </div>
+</section>
+
+<section class="card" style="max-width: 760px;">
+    <form class="form" method="post">
+        <div class="form-row">
+            <label for="month">Month</label>
+            <input id="month" name="month" type="month" required value="{{ default_month }}" />
+        </div>
+        <div class="form-row">
+            <label for="currency">Currency</label>
+            <input id="currency" name="currency" type="text" required value="{{ default_currency }}" />
+        </div>
+        <div class="form-row checkbox-row">
+            <input id="include_inactive" name="include_inactive" type="checkbox" />
+            <label for="include_inactive">Include inactive models in validation report</label>
+        </div>
+        <div class="form-row">
+            <label for="output_dir">Export Directory</label>
+            <input id="output_dir" name="output_dir" type="text" required value="{{ default_output }}" />
+        </div>
+        <div class="form-actions">
+            <button class="button" type="submit">Generate Schedule</button>
+            <a class="button secondary" href="/schedules">Cancel</a>
+        </div>
+    </form>
+</section>
+{% endblock %}

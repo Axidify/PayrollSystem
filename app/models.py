@@ -1,0 +1,94 @@
+"""SQLAlchemy models for the payroll application."""
+from __future__ import annotations
+
+from datetime import date, datetime
+from decimal import Decimal
+
+from sqlalchemy import Boolean, CheckConstraint, Column, Date, DateTime, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.database import Base
+
+STATUS_ENUM = ("Active", "Inactive")
+FREQUENCY_ENUM = ("weekly", "biweekly", "monthly")
+PAYOUT_STATUS_ENUM = ("paid", "on_hold", "not_paid")
+
+
+class Model(Base):
+    __tablename__ = "models"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="Active")
+    code: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
+    real_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    working_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    start_date: Mapped[date] = mapped_column(Date, nullable=False)
+    payment_method: Mapped[str] = mapped_column(String(100), nullable=False)
+    payment_frequency: Mapped[str] = mapped_column(String(20), nullable=False)
+    amount_monthly: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+
+    payouts: Mapped[list["Payout"]] = relationship(back_populates="model", cascade="all, delete-orphan")
+    validations: Mapped[list["ValidationIssue"]] = relationship(
+        back_populates="model", cascade="all, delete-orphan"
+    )
+
+    __table_args__ = (
+        CheckConstraint("amount_monthly > 0", name="ck_models_amount_positive"),
+    )
+
+
+class ScheduleRun(Base):
+    __tablename__ = "schedule_runs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    target_year: Mapped[int] = mapped_column(Integer, nullable=False)
+    target_month: Mapped[int] = mapped_column(Integer, nullable=False)
+    currency: Mapped[str] = mapped_column(String(10), nullable=False, default="USD")
+    include_inactive: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    summary_models_paid: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    summary_total_payout: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False, default=0)
+    summary_frequency_counts: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    export_path: Mapped[str] = mapped_column(String(255), nullable=False, default="exports")
+
+    payouts: Mapped[list["Payout"]] = relationship(back_populates="schedule_run", cascade="all, delete-orphan")
+    validations: Mapped[list["ValidationIssue"]] = relationship(
+        back_populates="schedule_run", cascade="all, delete-orphan"
+    )
+
+
+class Payout(Base):
+    __tablename__ = "payouts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    schedule_run_id: Mapped[int] = mapped_column(ForeignKey("schedule_runs.id", ondelete="CASCADE"), nullable=False)
+    model_id: Mapped[int] = mapped_column(ForeignKey("models.id", ondelete="SET NULL"), nullable=True)
+    pay_date: Mapped[date] = mapped_column(Date, nullable=False)
+    code: Mapped[str] = mapped_column(String(50), nullable=False)
+    real_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    working_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    payment_method: Mapped[str] = mapped_column(String(100), nullable=False)
+    payment_frequency: Mapped[str] = mapped_column(String(20), nullable=False)
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    notes: Mapped[str] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="not_paid")
+
+    schedule_run: Mapped[ScheduleRun] = relationship(back_populates="payouts")
+    model: Mapped[Model] = relationship(back_populates="payouts")
+
+
+class ValidationIssue(Base):
+    __tablename__ = "validation_issues"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    schedule_run_id: Mapped[int] = mapped_column(ForeignKey("schedule_runs.id", ondelete="CASCADE"), nullable=False)
+    model_id: Mapped[int] = mapped_column(ForeignKey("models.id", ondelete="SET NULL"), nullable=True)
+    severity: Mapped[str] = mapped_column(String(20), nullable=False)
+    issue: Mapped[str] = mapped_column(Text, nullable=False)
+
+    schedule_run: Mapped[ScheduleRun] = relationship(back_populates="validations")
+    model: Mapped[Model] = relationship(back_populates="validations")

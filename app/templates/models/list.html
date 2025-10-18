@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block title %}Models · Payroll Scheduler{% endblock %}
+{% block content %}
+<section class="page-header">
+    <div>
+        <h1 class="page-title">Model Roster</h1>
+        <p>Maintain active talent, salaries, and payment preferences.</p>
+    </div>
+    <div>
+        <a class="button" href="/models/new">Add Model</a>
+    </div>
+</section>
+
+<section class="card-grid columns-3">
+    <div class="card metric">
+        <div class="metric-title">Total Models</div>
+        <div class="metric-value">{{ models|length }}</div>
+    </div>
+    <div class="card metric">
+        <div class="metric-title">Active</div>
+        <div class="metric-value">{{ models|selectattr('status', 'equalto', 'Active')|list|length }}</div>
+    </div>
+    <div class="card metric">
+        <div class="metric-title">Inactive</div>
+        <div class="metric-value">{{ models|selectattr('status', 'equalto', 'Inactive')|list|length }}</div>
+    </div>
+    <div class="card metric">
+        <div class="metric-title">Lifetime Paid (USD)</div>
+        <div class="metric-value">${{ '%.2f'|format(total_paid_sum) }}</div>
+    </div>
+</section>
+
+<section class="card" style="margin-top: 24px;">
+    <form class="filter-bar" method="get">
+        <div class="filter-group">
+            <label for="code">Code</label>
+            <input id="code" name="code" type="text" placeholder="Search code" value="{{ filters.code }}" />
+        </div>
+        <div class="filter-group">
+            <label for="status">Status</label>
+            <select id="status" name="status">
+                <option value="">All</option>
+                {% for option in status_options %}
+                    <option value="{{ option }}" {% if filters.status == option %}selected{% endif %}>{{ option }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label for="frequency">Frequency</label>
+            <select id="frequency" name="frequency">
+                <option value="">All</option>
+                {% for option in frequency_options %}
+                    <option value="{{ option }}" {% if filters.frequency == option %}selected{% endif %}>{{ option|title }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label for="payment_method">Payment Method</label>
+            <select id="payment_method" name="payment_method">
+                <option value="">All</option>
+                {% for method in payment_methods %}
+                    <option value="{{ method }}" {% if filters.payment_method == method %}selected{% endif %}>{{ method }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-actions">
+            <button class="button" type="submit">Apply</button>
+            <a class="button secondary" href="/models">Reset</a>
+            <a class="button secondary" href="{{ export_url }}">Export CSV</a>
+        </div>
+    </form>
+</section>
+
+<section class="card" style="margin-top: 24px;">
+    <h2>Roster Details</h2>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Code</th>
+                <th>Status</th>
+                <th>Real Name</th>
+                <th>Working Name</th>
+                <th>Start Date</th>
+                <th>Frequency</th>
+                <th>Monthly Salary (USD)</th>
+                <th>Payment Method</th>
+                <th>Total Paid (USD)</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for model in models %}
+            <tr>
+                <td>{{ model.code }}</td>
+                <td>
+                    {% if model.status == 'Active' %}
+                        <span class="tag active">Active</span>
+                    {% else %}
+                        <span class="tag inactive">Inactive</span>
+                    {% endif %}
+                </td>
+                <td>{{ model.real_name }}</td>
+                <td>{{ model.working_name }}</td>
+                <td>{{ model.start_date.strftime('%m/%d/%Y') if model.start_date else '' }}</td>
+                <td>{{ model.payment_frequency|title }}</td>
+                <td>${{ '%.2f' | format(model.amount_monthly) }}</td>
+                <td>{{ model.payment_method }}</td>
+                {% set lifetime = totals_map.get(model.id, 0) %}
+                <td>${{ '%.2f' | format(lifetime) }}</td>
+                <td class="actions">
+                    <a class="link-button" href="/models/{{ model.id }}/edit">Edit</a>
+                    <form action="/models/{{ model.id }}/delete" method="post" onsubmit="return confirm('Delete this model?');">
+                        <button class="link-button" type="submit">Delete</button>
+                    </form>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td class="empty-state" colspan="10">No models captured yet. Add one to get started.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</section>
+{% endblock %}

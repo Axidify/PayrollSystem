@@ -1,0 +1,42 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+.eggs/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+.venv-1/
+venv/
+
+# Envs / secrets
+.env
+.env.*
+*.env
+
+# Build / dist
+build/
+dist/
+*.log
+
+# Generated exports
+exports/
+
+# Local database state
+data/*.db
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Optional Node tooling
+# node_modules/
+# .next/
+# .parcel-cache/

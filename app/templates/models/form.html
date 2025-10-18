@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit Model' if action == 'edit' else 'Add Model' }} · Payroll Scheduler{% endblock %}
+{% block content %}
+<section class="page-header">
+    <div>
+        <h1 class="page-title">{{ 'Edit Model' if action == 'edit' else 'Add Model' }}</h1>
+        <p>Capture roster information used for automated payroll scheduling.</p>
+    </div>
+</section>
+
+<section class="card" style="max-width: 820px;">
+    <form class="form" method="post">
+        <div class="form-row">
+            <label for="status">Status</label>
+            <select id="status" name="status" required>
+                {% set status_value = model.status if model else 'Active' %}
+                <option value="Active" {% if status_value == 'Active' %}selected{% endif %}>Active</option>
+                <option value="Inactive" {% if status_value == 'Inactive' %}selected{% endif %}>Inactive</option>
+            </select>
+        </div>
+        <div class="form-row">
+            <label for="code">Code</label>
+            <input id="code" name="code" type="text" required value="{{ model.code if model else '' }}" />
+        </div>
+        <div class="form-row">
+            <label for="real_name">Real Name</label>
+            <input id="real_name" name="real_name" type="text" required value="{{ model.real_name if model else '' }}" />
+        </div>
+        <div class="form-row">
+            <label for="working_name">Working Name</label>
+            <input id="working_name" name="working_name" type="text" required value="{{ model.working_name if model else '' }}" />
+        </div>
+        <div class="form-row">
+            <label for="start_date">Start Date</label>
+            <input id="start_date" name="start_date" type="date" required value="{{ model.start_date if model else '' }}" />
+        </div>
+        <div class="form-row">
+            <label for="payment_method">Payment Method</label>
+            <input id="payment_method" name="payment_method" type="text" required value="{{ model.payment_method if model else '' }}" />
+        </div>
+        <div class="form-row">
+            <label for="payment_frequency">Frequency</label>
+            {% set freq_value = model.payment_frequency if model else 'weekly' %}
+            <select id="payment_frequency" name="payment_frequency" required>
+                <option value="weekly" {% if freq_value == 'weekly' %}selected{% endif %}>Weekly</option>
+                <option value="biweekly" {% if freq_value == 'biweekly' %}selected{% endif %}>Biweekly</option>
+                <option value="monthly" {% if freq_value == 'monthly' %}selected{% endif %}>Monthly</option>
+            </select>
+        </div>
+        <div class="form-row">
+            <label for="amount_monthly">Monthly Amount (USD)</label>
+            <input id="amount_monthly" name="amount_monthly" type="number" step="0.01" min="0" required value="{{ '%.2f'|format(model.amount_monthly) if model else '' }}" />
+        </div>
+        <div class="form-actions">
+            <button class="button" type="submit">Save</button>
+            <a class="button secondary" href="/models">Cancel</a>
+        </div>
+    </form>
+</section>
+{% endblock %}

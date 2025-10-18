@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+{% block title %}Schedule {{ run.id }} · Payroll Scheduler{% endblock %}
+{% block content %}
+<section class="page-header">
+    <div>
+        <h1 class="page-title">{{ '%02d/%04d'|format(run.target_month, run.target_year) }} Payroll</h1>
+        <p>Generated {{ run.created_at.strftime('%m/%d/%Y') }} · Currency {{ run.currency }}</p>
+    </div>
+    <div class="download-links">
+        <a class="button" href="/schedules/{{ run.id }}/download/xlsx">Excel Workbook</a>
+        <a class="button" href="/schedules/{{ run.id }}/download/schedule_csv">Schedule CSV</a>
+        <a class="button" href="/schedules/{{ run.id }}/download/models_csv">Models CSV</a>
+        <a class="button" href="/schedules/{{ run.id }}/download/validation_csv">Validation CSV</a>
+    </div>
+</section>
+
+<section class="metrics">
+    <div class="metric">
+        <div class="metric-title">Paid This Run</div>
+        <div class="metric-value">{{ '%.2f'|format(summary.paid_total) }}</div>
+    </div>
+    <div class="metric">
+        <div class="metric-title">Unpaid This Run</div>
+        <div class="metric-value">{{ '%.2f'|format(summary.unpaid_total) }}</div>
+    </div>
+    <div class="metric">
+        <div class="metric-title">Models Paid</div>
+        <div class="metric-value">{{ summary.paid_models }}</div>
+    </div>
+    <div class="metric">
+        <div class="metric-title">Lifetime Paid</div>
+        <div class="metric-value">{{ '%.2f'|format(summary.overall_paid) }}</div>
+    </div>
+    <div class="metric">
+        <div class="metric-title">Status Mix</div>
+        <div class="metric-value metric-value-small">
+            {% for option in status_options %}
+                {{ option.replace('_', ' ')|title }}: {{ status_counts.get(option, 0) }}{% if not loop.last %} · {% endif %}
+            {% else %}
+                n/a
+            {% endfor %}
+        </div>
+    </div>
+    <div class="metric">
+        <div class="metric-title">Frequency Mix</div>
+        <div class="metric-value metric-value-small">
+            {% for name, count in frequency_counts.items() %}
+                {{ name }}: {{ count }}{% if not loop.last %} · {% endif %}
+            {% else %}
+                n/a
+            {% endfor %}
+        </div>
+    </div>
+    <div class="metric">
+        <div class="metric-title">Export Folder</div>
+        <div class="metric-value metric-value-small">{{ export_dir }}</div>
+    </div>
+</section>
+
+<section class="card" style="margin-top: 32px;">
+    <h2>Payouts</h2>
+    <form class="filter-bar" method="get" action="/schedules/{{ run.id }}">
+        <div class="filter-group">
+            <label for="filter-code">Model Code</label>
+            <select id="filter-code" name="code">
+                <option value="">All</option>
+                {% for option in code_options %}
+                    <option value="{{ option }}" {% if filters.code == option %}selected{% endif %}>{{ option }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label for="filter-pay-date">Pay Date</label>
+            <select id="filter-pay-date" name="pay_date">
+                <option value="">All dates</option>
+                {% for option in pay_date_options %}
+                    <option value="{{ option.value }}" {% if filters.pay_date == option.value %}selected{% endif %} {% if not option.available %}disabled{% endif %}>{{ option.label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label for="filter-frequency">Frequency</label>
+            <select id="filter-frequency" name="frequency">
+                <option value="">All</option>
+                {% for value in frequency_options %}
+                    <option value="{{ value }}" {% if filters.frequency == value %}selected{% endif %}>{{ value|title }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label for="filter-method">Payment Method</label>
+            <select id="filter-method" name="payment_method">
+                <option value="">All</option>
+                {% for value in payment_methods %}
+                    <option value="{{ value }}" {% if filters.payment_method == value %}selected{% endif %}>{{ value }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label for="filter-status">Status</label>
+            <select id="filter-status" name="status">
+                <option value="">All</option>
+                {% for option in status_options %}
+                    <option value="{{ option }}" {% if filters.status == option %}selected{% endif %}>{{ option.replace('_', ' ')|title }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-actions">
+            <button class="button" type="submit">Apply Filters</button>
+            <a class="button secondary" href="/schedules/{{ run.id }}">Reset</a>
+        </div>
+    </form>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Pay Date</th>
+                <th>Code</th>
+                <th>Real Name</th>
+                <th>Working Name</th>
+                <th>Method</th>
+                <th>Frequency</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Notes &amp; Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for payout in payouts %}
+            <tr>
+                <td>{{ payout.pay_date.strftime('%m/%d/%Y') }}</td>
+                <td>{{ payout.code }}</td>
+                <td>{{ payout.real_name }}</td>
+                <td>{{ payout.working_name }}</td>
+                <td>{{ payout.payment_method }}</td>
+                <td>{{ payout.payment_frequency|title }}</td>
+                <td>{{ '%.2f'|format(payout.amount) }}</td>
+                <td>
+                    <span class="status-badge status-{{ payout.status }}">{{ payout.status.replace('_', ' ')|title }}</span>
+                </td>
+                <td>
+                    <form class="note-form" method="post" action="/schedules/{{ run.id }}/payouts/{{ payout.id }}/note">
+                        <select name="status" aria-label="Payout status">
+                            {% for option in status_options %}
+                                <option value="{{ option }}" {% if payout.status == option %}selected{% endif %}>{{ option.replace('_', ' ')|title }}</option>
+                            {% endfor %}
+                        </select>
+                        <textarea name="notes" placeholder="Add context..." aria-label="Payout notes">{{ payout.notes or '' }}</textarea>
+                        <button class="button secondary" type="submit">Save</button>
+                    </form>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td class="empty-state" colspan="9">No payouts scheduled for this run.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</section>
+
+<section class="card" style="margin-top: 32px;">
+    <h2>Validation Messages</h2>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Severity</th>
+                <th>Model</th>
+                <th>Issue</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in validations %}
+            <tr>
+                <td>{{ item.severity }}</td>
+                <td>{{ item.model.code if item.model else '' }}</td>
+                <td>{{ item.issue }}</td>
+            </tr>
+            {% else %}
+            <tr>
+                <td class="empty-state" colspan="3">No validation issues recorded.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</section>
+{% endblock %}

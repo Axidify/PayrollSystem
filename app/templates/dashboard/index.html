@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block title %}Dashboard · Payroll Scheduler{% endblock %}
+{% block content %}
+<section class="page-header">
+    <div>
+        <h1 class="page-title">Operations Dashboard</h1>
+        <p>At-a-glance metrics for payroll performance and data quality.</p>
+    </div>
+</section>
+
+<section class="metrics">
+    <div class="metric">
+        <div class="metric-title">Total Models</div>
+        <div class="metric-value">{{ summary.total_models }}</div>
+    </div>
+    <div class="metric">
+        <div class="metric-title">Active Models</div>
+        <div class="metric-value">{{ summary.active_models }}</div>
+    </div>
+    <div class="metric">
+        <div class="metric-title">Inactive Models</div>
+        <div class="metric-value">{{ summary.inactive_models }}</div>
+    </div>
+    <div class="metric">
+        <div class="metric-title">Lifetime Paid</div>
+        <div class="metric-value">${{ '%.2f'|format(summary.lifetime_paid) }}</div>
+    </div>
+    <div class="metric">
+        <div class="metric-title">Outstanding</div>
+        <div class="metric-value">${{ '%.2f'|format(summary.outstanding_total) }}</div>
+    </div>
+    <div class="metric">
+        <div class="metric-title">Pending Payouts</div>
+        <div class="metric-value">{{ summary.pending_count }}</div>
+    </div>
+    <div class="metric">
+        <div class="metric-title">On Hold</div>
+        <div class="metric-value">{{ summary.on_hold_count }}</div>
+    </div>
+    <div class="metric">
+        <div class="metric-title">Total Runs</div>
+        <div class="metric-value">{{ summary.total_runs }}</div>
+    </div>
+    <div class="metric">
+        <div class="metric-title">Latest Run Paid</div>
+        <div class="metric-value">${{ '%.2f'|format(summary.latest_run_paid) }}</div>
+    </div>
+    <div class="metric">
+        <div class="metric-title">Latest Run Outstanding</div>
+        <div class="metric-value">${{ '%.2f'|format(summary.latest_run_unpaid) }}</div>
+    </div>
+    {% if summary.latest_run %}
+    <div class="metric" style="grid-column: span 2;">
+        <div class="metric-title">Last Run</div>
+        <div class="metric-value" style="font-size: 1.1rem;">
+            {{ summary.latest_run.target_year }}-{{ '%02d'|format(summary.latest_run.target_month) }} ·
+            Generated {{ summary.latest_run.created_at.strftime('%m/%d/%Y') }}
+        </div>
+    </div>
+    {% endif %}
+</section>
+
+<section class="card-grid columns-3" style="margin-top: 32px;">
+    <div class="card">
+        <h2>Recent Runs</h2>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Run</th>
+                    <th>Created</th>
+                    <th>Currency</th>
+                    <th>Total</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for run in recent_runs %}
+                <tr>
+                    <td>{{ run.target_year }}-{{ '%02d'|format(run.target_month) }}</td>
+                    <td>{{ run.created_at.strftime('%m/%d/%Y') }}</td>
+                    <td>{{ run.currency }}</td>
+                    <td>${{ '%.2f'|format(run.summary_total_payout) }}</td>
+                    <td><a class="link-button" href="/schedules/{{ run.id }}">Open</a></td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td class="empty-state" colspan="5">Run payroll to populate this list.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card">
+        <h2>Top Paid Models</h2>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Model</th>
+                    <th>Status</th>
+                    <th>Total Paid</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in top_models %}
+                <tr>
+                    <td>{{ item.code }} · {{ item.working_name }}</td>
+                    <td>
+                        {% if item.status == 'Active' %}
+                            <span class="tag active">Active</span>
+                        {% else %}
+                            <span class="tag inactive">Inactive</span>
+                        {% endif %}
+                    </td>
+                    <td>${{ '%.2f'|format(item.total_paid) }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td class="empty-state" colspan="3">No payouts recorded yet.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card">
+        <h2>Recent Validation Issues</h2>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Severity</th>
+                    <th>Model</th>
+                    <th>Issue</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for issue in validation_issues %}
+                <tr>
+                    <td>{{ issue.severity }}</td>
+                    <td>{{ issue.model_code or '—' }}</td>
+                    <td>{{ issue.issue }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td class="empty-state" colspan="3">No validation issues logged.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

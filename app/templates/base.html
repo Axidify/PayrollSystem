@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>{% block title %}Payroll Scheduler{% endblock %}</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+<div class="layout">
+    <aside class="sidebar">
+        <div class="brand">PAYROLL DESK</div>
+        <nav class="nav-links">
+            {% set path = request.url.path %}
+            <a class="nav-link {% if path == '/' or path.startswith('/dashboard') %}active{% endif %}" href="/dashboard">Dashboard</a>
+            <a class="nav-link {% if path.startswith('/models') %}active{% endif %}" href="/models">Models</a>
+            <a class="nav-link {% if path.startswith('/schedules') %}active{% endif %}" href="/schedules">Schedules</a>
+        </nav>
+    </aside>
+    <main class="content">
+        {% block content %}{% endblock %}
+    </main>
+</div>
+</body>
+</html>
