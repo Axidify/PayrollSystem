@@ -4,6 +4,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi import Response
 
 from app.database import init_db
 from app.routers import dashboard, models, schedules
@@ -25,3 +26,9 @@ def startup_event() -> None:
 @app.get("/")
 def root() -> RedirectResponse:
     return RedirectResponse(url="/dashboard")
+
+
+@app.get("/health")
+def health() -> Response:
+    """Simple health endpoint for load balancers and platform checks."""
+    return Response(content='{"status":"ok"}', media_type="application/json")

@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: payrollsystem
+    env: docker
+    repo: Axidify/PayrollSystem
+    branch: main
+    plan: free
+    dockerfile_path: Dockerfile
+    build_command: ""
+    start_command: ""
+    envVars:
+      - key: PAYROLL_DATABASE_URL
+        value: "<SET_IN_RENDER_UI>"
+      - key: PYTHONUNBUFFERED
+        value: "1"
+    healthCheckPath: /health
