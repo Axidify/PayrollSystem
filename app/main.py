@@ -7,11 +7,13 @@ from fastapi.staticfiles import StaticFiles
 from fastapi import Response
 
 from app.database import init_db
-from app.routers import dashboard, models, schedules, auth
+from app.routers import admin, auth, dashboard, models, profile, schedules
 
 app = FastAPI(title="Payroll Scheduler", version="1.0.0")
 
 app.include_router(auth.router)
+app.include_router(profile.router)
+app.include_router(admin.router)
 app.include_router(dashboard.router)
 app.include_router(models.router)
 app.include_router(schedules.router)

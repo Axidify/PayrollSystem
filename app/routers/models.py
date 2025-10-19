@@ -78,6 +78,7 @@ def list_models(
         "models/list.html",
         {
             "request": request,
+            "user": user,
             "models": models,
             "filters": {
                 "code": code_filter or "",
@@ -170,6 +171,7 @@ def new_model_form(request: Request, user: User = Depends(get_current_user)):
         "models/form.html",
         {
             "request": request,
+            "user": user,
             "action": "create",
         },
     )
@@ -214,6 +216,7 @@ def edit_model_form(model_id: int, request: Request, db: Session = Depends(get_s
         "models/form.html",
         {
             "request": request,
+            "user": user,
             "action": "edit",
             "model": model,
         },

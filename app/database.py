@@ -52,10 +52,10 @@ def init_db() -> None:
         from app.auth import User
         existing_admin = session.query(User).filter(User.username == "admin").first()
         if not existing_admin:
-            admin_user = User.create_user("admin", "admin")
+            admin_user = User.create_user("admin", "admin", role="admin")
             session.add(admin_user)
             session.commit()
-            print("[init_db] Created default admin user (username: admin, password: admin)")
+            print("[init_db] Created default admin user (username: admin, password: admin, role: admin)")
     finally:
         session.close()
     

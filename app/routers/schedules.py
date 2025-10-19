@@ -52,6 +52,7 @@ def list_runs(
         "schedules/list.html",
         {
             "request": request,
+            "user": user,
             "runs": runs,
             "filters": {
                 "month": normalized_month,
@@ -68,6 +69,7 @@ def new_schedule_form(request: Request, user: User = Depends(get_current_user)):
         "schedules/form.html",
         {
             "request": request,
+            "user": user,
             "default_month": default_month,
             "default_currency": "USD",
             "default_output": str(DEFAULT_EXPORT_DIR),
@@ -194,6 +196,7 @@ def view_schedule(
         "schedules/detail.html",
         {
             "request": request,
+            "user": user,
             "run": run,
             "payouts": payouts,
             "validations": validations,

@@ -1,0 +1,203 @@
+"""Admin routes for user management."""
+from __future__ import annotations
+
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi.responses import RedirectResponse
+from sqlalchemy.orm import Session
+
+from app.auth import User
+from app.database import get_session
+from app.dependencies import templates
+from app.routers.auth import get_current_user
+
+router = APIRouter(prefix="/admin", tags=["Admin"])
+
+
+def get_admin_user(user: User = Depends(get_current_user)) -> User:
+    """Dependency to ensure user is admin."""
+    if not user.is_admin():
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return user
+
+
+@router.get("/users")
+def list_users(
+    request: Request,
+    db: Session = Depends(get_session),
+    admin: User = Depends(get_admin_user),
+):
+    """List all users (admin only)."""
+    users = db.query(User).filter(User.is_active == True).all()
+    return templates.TemplateResponse(
+        "admin/users.html",
+        {
+            "request": request,
+            "users": users,
+            "current_user": admin,
+        },
+    )
+
+
+@router.get("/users/new")
+def new_user_form(
+    request: Request,
+    admin: User = Depends(get_admin_user),
+):
+    """Show new user creation form (admin only)."""
+    return templates.TemplateResponse(
+        "admin/user_form.html",
+        {
+            "request": request,
+            "action": "create",
+            "current_user": admin,
+        },
+    )
+
+
+@router.post("/users/new")
+def create_user(
+    request: Request,
+    username: str = Form(...),
+    password: str = Form(...),
+    role: str = Form("user"),
+    db: Session = Depends(get_session),
+    admin: User = Depends(get_admin_user),
+):
+    """Create a new user (admin only)."""
+    # Check if username already exists
+    existing = db.query(User).filter(User.username == username).first()
+    if existing:
+        return templates.TemplateResponse(
+            "admin/user_form.html",
+            {
+                "request": request,
+                "action": "create",
+                "error": "Username already exists",
+                "current_user": admin,
+            },
+            status_code=400,
+        )
+    
+    # Validate role
+    if role not in ["admin", "user"]:
+        return templates.TemplateResponse(
+            "admin/user_form.html",
+            {
+                "request": request,
+                "action": "create",
+                "error": "Invalid role",
+                "current_user": admin,
+            },
+            status_code=400,
+        )
+    
+    new_user = User.create_user(username, password, role=role)
+    db.add(new_user)
+    db.commit()
+    return RedirectResponse(url="/admin/users", status_code=303)
+
+
+@router.get("/users/{user_id}/edit")
+def edit_user_form(
+    user_id: int,
+    request: Request,
+    db: Session = Depends(get_session),
+    admin: User = Depends(get_admin_user),
+):
+    """Show user edit form (admin only)."""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return templates.TemplateResponse(
+        "admin/user_form.html",
+        {
+            "request": request,
+            "action": "edit",
+            "user": user,
+            "current_user": admin,
+        },
+    )
+
+
+@router.post("/users/{user_id}/edit")
+def update_user(
+    user_id: int,
+    request: Request,
+    role: str = Form(...),
+    db: Session = Depends(get_session),
+    admin: User = Depends(get_admin_user),
+):
+    """Update user role (admin only)."""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Prevent admin from modifying their own role
+    if user.id == admin.id:
+        return templates.TemplateResponse(
+            "admin/user_form.html",
+            {
+                "request": request,
+                "action": "edit",
+                "user": user,
+                "error": "Cannot modify your own role",
+                "current_user": admin,
+            },
+            status_code=400,
+        )
+    
+    if role not in ["admin", "user"]:
+        return templates.TemplateResponse(
+            "admin/user_form.html",
+            {
+                "request": request,
+                "action": "edit",
+                "user": user,
+                "error": "Invalid role",
+                "current_user": admin,
+            },
+            status_code=400,
+        )
+    
+    user.role = role
+    db.commit()
+    return RedirectResponse(url="/admin/users", status_code=303)
+
+
+@router.post("/users/{user_id}/reset-password")
+def reset_user_password(
+    user_id: int,
+    request: Request,
+    new_password: str = Form(...),
+    db: Session = Depends(get_session),
+    admin: User = Depends(get_admin_user),
+):
+    """Reset user password (admin only)."""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    user.password_hash = User.hash_password(new_password)
+    db.commit()
+    return RedirectResponse(url="/admin/users", status_code=303)
+
+
+@router.post("/users/{user_id}/delete")
+def delete_user(
+    user_id: int,
+    db: Session = Depends(get_session),
+    admin: User = Depends(get_admin_user),
+):
+    """Soft-delete user (admin only)."""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Prevent admin from deleting their own account
+    if user.id == admin.id:
+        raise HTTPException(status_code=400, detail="Cannot delete your own account")
+    
+    user.is_active = False
+    db.commit()
+    return RedirectResponse(url="/admin/users", status_code=303)

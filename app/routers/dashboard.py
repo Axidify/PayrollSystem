@@ -61,6 +61,7 @@ def dashboard(request: Request, db: Session = Depends(get_session), user: User =
         "dashboard/index.html",
         {
             "request": request,
+            "user": user,
             "summary": summary,
             "recent_runs": recent_runs_data,
             "top_models": top_models_data,

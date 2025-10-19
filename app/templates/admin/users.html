@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Management - Payroll Scheduler</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <style>
+        .admin-container {
+            max-width: 1000px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+        .header-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        .header-section h1 {
+            margin: 0;
+            color: #333;
+        }
+        .btn-new {
+            background-color: #28a745;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            text-decoration: none;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .btn-new:hover {
+            background-color: #218838;
+        }
+        .users-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        .users-table th {
+            background-color: #667eea;
+            color: white;
+            padding: 15px;
+            text-align: left;
+            font-weight: bold;
+        }
+        .users-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #eee;
+        }
+        .users-table tr:hover {
+            background-color: #f9f9f9;
+        }
+        .role-badge {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .role-admin {
+            background-color: #ff6b6b;
+            color: white;
+        }
+        .role-user {
+            background-color: #4ecdc4;
+            color: white;
+        }
+        .actions {
+            display: flex;
+            gap: 10px;
+        }
+        .btn {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 14px;
+            display: inline-block;
+        }
+        .btn-edit {
+            background-color: #667eea;
+            color: white;
+        }
+        .btn-edit:hover {
+            background-color: #5568d3;
+        }
+        .btn-reset {
+            background-color: #ffc107;
+            color: #333;
+        }
+        .btn-reset:hover {
+            background-color: #ffb300;
+        }
+        .btn-delete {
+            background-color: #dc3545;
+            color: white;
+        }
+        .btn-delete:hover {
+            background-color: #c82333;
+        }
+        .logout-btn {
+            background-color: #666;
+            color: white;
+            padding: 10px 15px;
+            text-decoration: none;
+            border-radius: 5px;
+            display: inline-block;
+        }
+        .logout-btn:hover {
+            background-color: #555;
+        }
+        .top-nav {
+            background-color: #f8f9fa;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #ddd;
+        }
+        .nav-links {
+            display: flex;
+            gap: 15px;
+        }
+        .nav-links a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .nav-links a:hover {
+            text-decoration: underline;
+        }
+        .user-info {
+            color: #666;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="top-nav">
+        <div>
+            <strong>Payroll Scheduler</strong>
+        </div>
+        <div class="nav-links">
+            <a href="/dashboard">Dashboard</a>
+            <a href="/models">Models</a>
+            <a href="/schedules">Schedules</a>
+            <a href="/admin/users" style="color: #ff6b6b; font-weight: bold;">Users</a>
+            <a href="/profile">Profile</a>
+            <a href="/logout" class="logout-btn">Logout</a>
+        </div>
+    </div>
+
+    <div class="admin-container">
+        <div class="header-section">
+            <div>
+                <h1>👥 User Management</h1>
+                <p class="user-info">Logged in as: <strong>{{ current_user.username }}</strong> ({{ current_user.role }})</p>
+            </div>
+            <a href="/admin/users/new" class="btn-new">+ New User</a>
+        </div>
+
+        {% if users %}
+        <table class="users-table">
+            <thead>
+                <tr>
+                    <th>Username</th>
+                    <th>Role</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                <tr>
+                    <td><strong>{{ user.username }}</strong></td>
+                    <td>
+                        <span class="role-badge role-{{ user.role }}">
+                            {{ user.role.upper() }}
+                        </span>
+                    </td>
+                    <td>{{ user.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>
+                        <div class="actions">
+                            <a href="/admin/users/{{ user.id }}/edit" class="btn btn-edit">Edit</a>
+                            <form method="post" action="/admin/users/{{ user.id }}/reset-password" style="display: inline;">
+                                <input type="password" name="new_password" placeholder="New password" required style="padding: 8px; border: 1px solid #ddd; border-radius: 3px;">
+                                <button type="submit" class="btn btn-reset">Reset Password</button>
+                            </form>
+                            {% if user.id != current_user.id %}
+                            <form method="post" action="/admin/users/{{ user.id }}/delete" style="display: inline;" onsubmit="return confirm('Are you sure?');">
+                                <button type="submit" class="btn btn-delete">Delete</button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p style="text-align: center; color: #999;">No users found.</p>
+        {% endif %}
+    </div>
+</body>
+</html>

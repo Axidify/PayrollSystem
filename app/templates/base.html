@@ -14,6 +14,14 @@
             <a class="nav-link {% if path == '/' or path.startswith('/dashboard') %}active{% endif %}" href="/dashboard">Dashboard</a>
             <a class="nav-link {% if path.startswith('/models') %}active{% endif %}" href="/models">Models</a>
             <a class="nav-link {% if path.startswith('/schedules') %}active{% endif %}" href="/schedules">Schedules</a>
+            <hr style="margin: 15px 0; border: none; border-top: 1px solid #555;">
+            {% if user %}
+            <a class="nav-link {% if path.startswith('/profile') %}active{% endif %}" href="/profile">👤 Profile</a>
+            {% if user.is_admin() %}
+            <a class="nav-link {% if path.startswith('/admin') %}active{% endif %}" href="/admin/users">👥 Users (Admin)</a>
+            {% endif %}
+            <a class="nav-link" href="/logout" style="color: #ff6b6b; margin-top: 15px;">🚪 Logout</a>
+            {% endif %}
         </nav>
     </aside>
     <main class="content">
