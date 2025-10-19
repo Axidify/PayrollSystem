@@ -84,9 +84,7 @@
     <div class="form-actions">
         {% if user.role == 'admin' %}
         <a class="button" href="/models/{{ model.id }}/edit">Edit Model</a>
-        <form action="/models/{{ model.id }}/delete" method="post" onsubmit="return confirm('Delete this model?');" style="display: inline;">
-            <button class="button secondary" type="submit">Delete Model</button>
-        </form>
+        <button class="button secondary" type="button" onclick="if(confirm('Delete this model?')) { fetch('/models/{{ model.id }}/delete', { method: 'POST' }).then(() => window.location.href='/models'); }">Delete Model</button>
         {% endif %}
         <a class="button secondary" href="/models">Back to Roster</a>
     </div>
