@@ -44,24 +44,32 @@ def init_db() -> None:
         if "already exists" in str(e).lower():
             print(f"[init_db] Tables already exist, skipping creation: {e}")
         else:
-            raise
+            print(f"[init_db] Warning during table creation: {e}")
     
     # Create default admin user if it doesn't exist
     session = SessionLocal()
     try:
-        existing_admin = session.query(User).filter(User.username == "admin").first()
-        if not existing_admin:
+        # Check if admin user exists
+        admin_count = session.query(User).filter(User.username == "admin").count()
+        if admin_count == 0:
+            # Admin doesn't exist, create it
             admin_user = User.create_user("admin", "admin", role="admin")
             session.add(admin_user)
             session.commit()
             print("[init_db] Created default admin user (username: admin, password: admin, role: admin)")
+        else:
+            print("[init_db] Admin user already exists, skipping creation")
     except Exception as e:
-        print(f"[init_db] Error creating admin user: {e}")
-        session.rollback()
+        print(f"[init_db] Error with admin user: {type(e).__name__}: {e}")
+        try:
+            session.rollback()
+        except:
+            pass
     finally:
-        session.close()
-    
-    ensure_schema_updates()
+        try:
+            session.close()
+        except:
+            pass
     
     ensure_schema_updates()
 
