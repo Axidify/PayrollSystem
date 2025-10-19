@@ -1,12 +1,63 @@
 {% extends "base.html" %}
 {% block title %}Schedules · Payroll Desk{% endblock %}
+
+{% macro render_run_card(run, allow_delete=False, user_role='') %}
+<article class="run-card">
+    <div class="run-card__header">
+        <div class="run-card__titles">
+            <span class="run-card__cycle">{{ run.cycle }}</span>
+            <span class="run-card__meta">Created {{ run.created }}</span>
+        </div>
+        <span class="status-chip status-chip--{{ run.status_variant|default('neutral') }}">{{ run.status }}</span>
+    </div>
+    <div class="run-card__metrics">
+        <div>
+            <span class="run-card__metric-label">Total</span>
+            <span class="run-card__metric-value">{{ run.currency or 'USD' }} {{ '%.2f'|format(run.total or 0) }}</span>
+        </div>
+        <div>
+            <span class="run-card__metric-label">Paid</span>
+            <span class="run-card__metric-value">{{ run.currency or 'USD' }} {{ '%.2f'|format(run.paid or 0) }}</span>
+        </div>
+        {% set outstanding_value = run.outstanding or 0 %}
+        <div>
+            <span class="run-card__metric-label">Outstanding</span>
+            <span class="run-card__metric-value{% if outstanding_value > 0 %} is-warning{% endif %}">{{ run.currency or 'USD' }} {{ '%.2f'|format(outstanding_value) }}</span>
+        </div>
+        <div>
+            <span class="run-card__metric-label">Models Paid</span>
+            <span class="run-card__metric-value">{{ run.models_paid or 0 }}</span>
+        </div>
+    </div>
+    <div class="run-card__frequencies">
+        {% if run.frequency_counts %}
+            {% for name, count in run.frequency_counts|dictsort %}
+            <span class="frequency-chip">{{ name|replace('_', ' ')|title }} · {{ count }}</span>
+            {% endfor %}
+        {% else %}
+        <span class="run-card__empty">No payout cadence recorded.</span>
+        {% endif %}
+    </div>
+    <div class="run-card__actions">
+        <a class="link-button" href="/schedules/{{ run.id }}">Open</a>
+        {% if allow_delete and user_role == 'admin' %}
+        <form method="post" action="/schedules/{{ run.id }}/delete" onsubmit="return confirm('Delete this payroll run?');">
+            <button class="link-button danger" type="submit">Delete</button>
+        </form>
+        {% endif %}
+    </div>
+</article>
+{% endmacro %}
+
 {% block content %}
 <section class="page-header">
     <div>
         <h1 class="page-title">Payroll Runs</h1>
-        <p>Review historical schedules, totals, and frequency distribution.</p>
+        <p>Track cycles, payouts, and outstanding actions at a glance.</p>
     </div>
-    <div>
+    <div class="header-actions">
+        <a class="button secondary" href="{{ view_all_url }}">View All Runs</a>
+        <a class="button secondary" href="{{ table_view_url }}">Table View</a>
         {% if user.role == 'admin' %}
         <a class="button" href="/schedules/new">Run Payroll</a>
         {% endif %}
@@ -14,116 +65,103 @@
 </section>
 
 {% if has_runs %}
-<section class="card" style="margin-bottom: 24px;">
-    <form class="filter-bar" method="get">
-        <div class="filter-group">
-            <label for="filter-month">Payroll Month</label>
-            <select id="filter-month" name="month">
-                {% for option in month_options %}
-                <option value="{{ option.value }}" {% if option.is_selected %}selected{% endif %}>
-                    {{ option.label }}{% if option.run_count %} · {{ option.run_count }} run{% if option.run_count != 1 %}s{% endif %}{% endif %}
-                </option>
-                {% endfor %}
-            </select>
+<section class="card calendar-card">
+    <div class="section-heading">
+        <div>
+            <h2>Year At A Glance</h2>
+            <p>Select a month to focus the totals below.</p>
         </div>
-        <div class="filter-actions">
-            <button class="button" type="submit">Apply</button>
+        <div class="heading-actions">
             <a class="button secondary" href="/schedules">Latest Month</a>
         </div>
-    </form>
-    {% if selected_month_label %}
-    <p style="margin-top: 12px; color: var(--text-subtle, #555);">
-        Showing runs for <strong>{{ selected_month_label }}</strong>
-        ({{ monthly_summary.run_count }} run{% if monthly_summary.run_count != 1 %}s{% endif %}).
-    </p>
-    {% endif %}
-</section>
-
-<section class="card-grid columns-4" style="margin-bottom: 24px;">
-    <div class="card metric">
-        <div class="metric-title">Total Payout</div>
-        <div class="metric-value">${{ '%.2f'|format(monthly_summary.total_payout or 0) }}</div>
     </div>
-    <div class="card metric">
-        <div class="metric-title">Paid This Month</div>
-        <div class="metric-value">${{ '%.2f'|format(monthly_summary.paid_total or 0) }}</div>
-    </div>
-    <div class="card metric">
-        <div class="metric-title">Outstanding</div>
-        <div class="metric-value">${{ '%.2f'|format(monthly_summary.unpaid_total or 0) }}</div>
-    </div>
-    <div class="card metric">
-        <div class="metric-title">Models Paid</div>
-        <div class="metric-value">{{ monthly_summary.models_paid }}</div>
+    <div class="calendar-strip">
+        {% for slot in year_overview %}
+        <a class="calendar-chip{% if slot.value == filters.month %} is-active{% elif slot.is_current and not filters.month %} is-current{% endif %}{% if not slot.has_runs %} is-empty{% endif %}"
+           href="?month={{ slot.value }}"
+           aria-label="View runs for {{ slot.label }}">
+            <span class="calendar-chip__label">{{ slot.label }}</span>
+            {% if slot.count %}
+            <span class="calendar-chip__count">{{ slot.count }}</span>
+            {% endif %}
+        </a>
+        {% endfor %}
     </div>
 </section>
 
-<section class="card" style="margin-top: 24px;">
-    <h2>Payout Mix</h2>
-    {% if monthly_frequency %}
-    <div class="frequency-summary">
-        {% for name, count in monthly_frequency|dictsort %}
-        <span class="tag">{{ name|replace('_', ' ')|title }} · {{ count }}</span>
+<section class="stat-grid">
+    <article class="card stat-card">
+        <p class="stat-card__label">Runs Tracked</p>
+        <p class="stat-card__value">{{ monthly_summary.run_count }}</p>
+        <p class="stat-card__hint">{{ selected_month_label or 'Latest cycle' }}</p>
+    </article>
+    <article class="card stat-card">
+        <p class="stat-card__label">Total Payout</p>
+        <p class="stat-card__value">{{ monthly_summary.currency or 'USD' }} {{ '%.2f'|format(monthly_summary.total_payout or 0) }}</p>
+        <p class="stat-card__hint">All runs in view</p>
+    </article>
+    <article class="card stat-card">
+        <p class="stat-card__label">Paid</p>
+        <p class="stat-card__value">{{ monthly_summary.currency or 'USD' }} {{ '%.2f'|format(monthly_summary.paid_total or 0) }}</p>
+        <p class="stat-card__hint">Cleared payouts</p>
+    </article>
+    <article class="card stat-card">
+        <p class="stat-card__label">Outstanding</p>
+        <p class="stat-card__value{% if monthly_summary.unpaid_total > 0 %} is-warning{% endif %}">{{ monthly_summary.currency or 'USD' }} {{ '%.2f'|format(monthly_summary.unpaid_total or 0) }}</p>
+        <p class="stat-card__hint">Pending to pay</p>
+    </article>
+    <article class="card stat-card">
+        <p class="stat-card__label">Models Paid</p>
+        <p class="stat-card__value">{{ monthly_summary.models_paid }}</p>
+        <p class="stat-card__hint">Across visible runs</p>
+    </article>
+</section>
+
+<div class="highlight-grid">
+    <section class="card highlight-card">
+        <div class="section-heading">
+            <div>
+                <h2>{{ selected_month_label or 'Latest Cycle' }}</h2>
+                <p>{{ monthly_summary.run_count }} run{% if monthly_summary.run_count != 1 %}s{% endif %} captured for this period.</p>
+            </div>
+        </div>
+        {% if monthly_frequency %}
+        <div class="frequency-summary" style="margin-bottom: 16px;">
+            {% for name, count in monthly_frequency|dictsort %}
+            <span class="frequency-chip">{{ name|replace('_', ' ')|title }} · {{ count }}</span>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="empty-state" style="margin-bottom: 16px;">No payout cadence recorded for {{ selected_month_label or 'this period' }}.</p>
+        {% endif %}
+        {% if selected_run_cards %}
+        <div class="run-grid">
+            {% for run in selected_run_cards %}
+            {{ render_run_card(run, True, user.role) }}
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="empty-state">No payroll runs recorded for {{ selected_month_label or 'this period' }}.</p>
+        {% endif %}
+    </section>
+</div>
+
+<section class="card">
+    <div class="section-heading">
+        <div>
+            <h2>Recent Activity</h2>
+            <p>The latest completed payroll runs.</p>
+        </div>
+    </div>
+    {% if recent_runs %}
+    <div class="run-grid">
+        {% for run in recent_runs %}
+        {{ render_run_card(run, False, user.role) }}
         {% endfor %}
     </div>
     {% else %}
-    <p class="empty-state" style="margin: 0;">No payouts recorded for {{ selected_month_label or 'this month' }}.</p>
+    <p class="empty-state">No historical runs yet. Once you record payroll this view will populate.</p>
     {% endif %}
-</section>
-
-<section class="card" style="margin-top: 24px;">
-    <h2>Payroll Runs</h2>
-    <table class="data-table">
-        <thead>
-            <tr>
-                <th>Run</th>
-                <th>Created</th>
-                <th>Cycle</th>
-                <th>Currency</th>
-                <th>Models Paid</th>
-                <th>Total Payout</th>
-                <th>Paid</th>
-                <th>Outstanding</th>
-                <th>Frequencies</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for run in runs %}
-            <tr>
-                <td>#{{ run.id }}</td>
-                <td>{{ run.created_at.strftime('%m/%d/%Y') }}</td>
-                <td>{{ '%02d/%04d'|format(run.target_month, run.target_year) }}</td>
-                <td>{{ run.currency }}</td>
-                <td>{{ run.summary_models_paid }}</td>
-                <td>${{ '%.2f'|format(run.summary_total_payout or 0) }}</td>
-                <td>${{ '%.2f'|format(run.paid_total or 0) }}</td>
-                <td>${{ '%.2f'|format(run.unpaid_total or 0) }}</td>
-                <td>
-                    {% if run.frequency_counts %}
-                        {% for name, count in run.frequency_counts|dictsort %}
-                            {{ name|replace('_', ' ')|title }}: {{ count }}{% if not loop.last %}, {% endif %}
-                        {% endfor %}
-                    {% else %}
-                        None
-                    {% endif %}
-                </td>
-                <td class="actions">
-                    <a class="link-button" href="/schedules/{{ run.id }}">Open</a>
-                    {% if user.role == 'admin' %}
-                    <form method="post" action="/schedules/{{ run.id }}/delete" onsubmit="return confirm('Delete this payroll run?');">
-                        <button class="link-button" type="submit">Delete</button>
-                    </form>
-                    {% endif %}
-                </td>
-            </tr>
-            {% else %}
-            <tr>
-                <td class="empty-state" colspan="10">No runs scheduled for {{ selected_month_label or 'the selected month' }}.</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
 </section>
 {% else %}
 <section class="card">

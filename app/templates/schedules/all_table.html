@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}All Runs Table · Payroll Desk{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div>
+        <h1 class="page-title">All Payroll Runs · Table</h1>
+        <p>Detailed table view of every payroll run recorded for {{ year }}.</p>
+    </div>
+    <div class="header-actions">
+        <a class="button secondary" href="/schedules">Back to Dashboard</a>
+        <a class="button secondary" href="{{ card_view_url }}">Card View</a>
+        {% if user.role == 'admin' %}
+        <a class="button" href="/schedules/new">Run Payroll</a>
+        {% endif %}
+    </div>
+</section>
+
+<section class="card">
+    <div class="section-heading">
+        <div>
+            <h2>Select Year</h2>
+            <p>Switch between archive years using the shortcuts below.</p>
+        </div>
+    </div>
+    <div class="year-switch">
+        {% for option in year_buttons %}
+        <a class="button {% if option.is_selected %}active{% else %}secondary{% endif %}" href="{{ option.url }}">
+            {{ option.label }}
+        </a>
+        {% endfor %}
+    </div>
+    {% if not has_previous_years %}
+    <p class="empty-state" style="margin-top: 16px;">No prior years recorded yet.</p>
+    {% endif %}
+</section>
+
+<section class="stat-grid">
+    <article class="card stat-card">
+        <p class="stat-card__label">Runs Recorded</p>
+        <p class="stat-card__value">{{ year_summary.run_count }}</p>
+        <p class="stat-card__hint">In {{ year }}</p>
+    </article>
+    <article class="card stat-card">
+        <p class="stat-card__label">Total Payout</p>
+        <p class="stat-card__value">{{ year_summary.currency }} {{ '%.2f'|format(year_summary.total_payout or 0) }}</p>
+        <p class="stat-card__hint">Across all runs</p>
+    </article>
+    <article class="card stat-card">
+        <p class="stat-card__label">Paid</p>
+        <p class="stat-card__value">{{ year_summary.currency }} {{ '%.2f'|format(year_summary.paid_total or 0) }}</p>
+        <p class="stat-card__hint">Completed payouts</p>
+    </article>
+    <article class="card stat-card">
+        <p class="stat-card__label">Outstanding</p>
+        <p class="stat-card__value{% if year_summary.unpaid_total > 0 %} is-warning{% endif %}">{{ year_summary.currency }} {{ '%.2f'|format(year_summary.unpaid_total or 0) }}</p>
+        <p class="stat-card__hint">Pending balances</p>
+    </article>
+    <article class="card stat-card">
+        <p class="stat-card__label">Models Paid</p>
+        <p class="stat-card__value">{{ year_summary.models_paid }}</p>
+        <p class="stat-card__hint">Unique payouts</p>
+    </article>
+</section>
+
+<section class="card table-card">
+    <div class="section-heading">
+        <div>
+            <h2>Payroll Runs ({{ year }})</h2>
+            <p>{{ year_summary.run_count }} run{% if year_summary.run_count != 1 %}s{% endif %} captured.</p>
+        </div>
+        <div class="heading-actions">
+            <a class="button" href="{{ export_url }}">Export Excel</a>
+        </div>
+    </div>
+    {% if runs %}
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Run</th>
+                <th>Created</th>
+                <th>Cycle</th>
+                <th>Currency</th>
+                <th>Models Paid</th>
+                <th>Total Payout</th>
+                <th>Paid</th>
+                <th>Outstanding</th>
+                <th>Frequencies</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for run in runs %}
+            <tr>
+                <td>#{{ run.id }}</td>
+                <td>{{ run.created_at.strftime('%m/%d/%Y') }}</td>
+                <td>{{ '%02d/%04d'|format(run.target_month, run.target_year) }}</td>
+                <td>{{ run.currency }}</td>
+                <td>{{ run.summary_models_paid }}</td>
+                <td>{{ year_summary.currency }} {{ '%.2f'|format(run.summary_total_payout or 0) }}</td>
+                <td>{{ year_summary.currency }} {{ '%.2f'|format(run.paid_total or 0) }}</td>
+                <td>{{ year_summary.currency }} {{ '%.2f'|format(run.unpaid_total or 0) }}</td>
+                <td>
+                    {% if run.frequency_counts %}
+                        {% for name, count in run.frequency_counts|dictsort %}
+                            {{ name|replace('_', ' ')|title }}: {{ count }}{% if not loop.last %}<br>{% endif %}
+                        {% endfor %}
+                    {% else %}
+                        <span class="table-muted">None</span>
+                    {% endif %}
+                </td>
+                <td class="actions">
+                    <a class="link-button" href="/schedules/{{ run.id }}">Open</a>
+                    {% if user.role == 'admin' %}
+                    <form method="post" action="/schedules/{{ run.id }}/delete" onsubmit="return confirm('Delete this payroll run?');">
+                        <button class="link-button danger" type="submit">Delete</button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="empty-state">No runs were recorded for {{ year }}.</p>
+    {% endif %}
+</section>
+{% endblock %}

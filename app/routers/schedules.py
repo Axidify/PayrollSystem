@@ -9,21 +9,116 @@ from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+import pandas as pd
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import FileResponse, RedirectResponse, StreamingResponse
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app import crud
 from app.auth import User
 from app.database import get_session
 from app.dependencies import templates
-from app.models import PAYOUT_STATUS_ENUM
+from app.models import PAYOUT_STATUS_ENUM, Payout
 from app.routers.auth import get_current_user, get_admin_user
 from app.services import PayrollService
 
 router = APIRouter(prefix="/schedules", tags=["Schedules"])
 
 DEFAULT_EXPORT_DIR = Path("exports")
+
+
+def _build_run_card(run_obj, zero: Decimal) -> dict[str, object]:
+    frequency_counts = getattr(run_obj, "frequency_counts", None)
+    if not isinstance(frequency_counts, dict):
+        try:
+            frequency_counts = json.loads(run_obj.summary_frequency_counts)
+        except (json.JSONDecodeError, AttributeError):
+            frequency_counts = {}
+
+    outstanding = getattr(run_obj, "unpaid_total", zero) or zero
+    paid_total_value = getattr(run_obj, "paid_total", zero) or zero
+    total_value = getattr(run_obj, "summary_total_payout", zero) or zero
+    status = "Completed" if outstanding <= zero else "Needs Attention"
+    status_variant = "success" if status == "Completed" else "warning"
+    cycle_label = datetime(run_obj.target_year, run_obj.target_month, 1).strftime("%b %Y")
+
+    return {
+        "id": run_obj.id,
+        "cycle": cycle_label,
+        "created": run_obj.created_at.strftime("%b %d, %Y"),
+        "models_paid": getattr(run_obj, "summary_models_paid", 0) or 0,
+        "total": total_value,
+        "paid": paid_total_value,
+        "outstanding": outstanding,
+        "status": status,
+        "status_variant": status_variant,
+        "frequency_counts": frequency_counts,
+        "currency": getattr(run_obj, "currency", "USD"),
+    }
+
+
+def _compute_frequency_counts(db: Session, run_id: int) -> dict[str, int]:
+    rows = (
+        db.query(Payout.payment_frequency, func.count(func.distinct(Payout.code)))
+        .filter(Payout.schedule_run_id == run_id)
+        .group_by(Payout.payment_frequency)
+        .all()
+    )
+    counts: dict[str, int] = {}
+    for frequency, count in rows:
+        label = frequency or "unspecified"
+        counts[label] = int(count or 0)
+    return counts
+
+
+def _count_unique_models(db: Session, run_ids: list[int]) -> int:
+    if not run_ids:
+        return 0
+    return (
+        db.query(func.count(func.distinct(Payout.code)))
+        .filter(Payout.schedule_run_id.in_(run_ids))
+        .scalar()
+        or 0
+    )
+
+
+def _prepare_runs_by_year(db: Session, target_year: int) -> tuple[list, list[int], list]:
+    all_runs = crud.list_schedule_runs(db)
+
+    zero = Decimal("0")
+    runs_for_year: list = []
+    available_years = sorted({run.target_year for run in all_runs}, reverse=True)
+
+    for run in all_runs:
+        if run.target_year != target_year:
+            continue
+
+        try:
+            run.frequency_counts = json.loads(run.summary_frequency_counts)
+        except json.JSONDecodeError:
+            run.frequency_counts = {}
+
+        summary = crud.run_payment_summary(db, run.id)
+        run.summary_models_paid = summary.get("paid_models", 0)
+        run.paid_total = summary.get("paid_total", Decimal("0"))
+        run.unpaid_total = summary.get("unpaid_total", Decimal("0"))
+        run.frequency_counts = _compute_frequency_counts(db, run.id)
+        runs_for_year.append(run)
+
+    runs_for_year.sort(key=lambda r: (r.target_month, r.created_at), reverse=True)
+
+    return runs_for_year, available_years, all_runs
+
+
+def _format_frequency_summary(frequency_counts: dict[str, int] | None) -> str:
+    if not frequency_counts:
+        return ""
+    parts = []
+    for name, count in sorted(frequency_counts.items()):
+        label = (name or "unspecified").replace("_", " ").title()
+        parts.append(f"{label} {count}")
+    return ", ".join(parts)
 
 
 @router.get("/")
@@ -60,6 +155,7 @@ def list_runs(
         run.summary_models_paid = summary.get("paid_models", 0)
         run.paid_total = summary.get("paid_total", Decimal("0"))
         run.unpaid_total = summary.get("unpaid_total", Decimal("0"))
+        run.frequency_counts = _compute_frequency_counts(db, run.id)
 
         key = (run.target_year, run.target_month)
         grouped_runs.setdefault(key, []).append(run)
@@ -77,14 +173,22 @@ def list_runs(
     zero = Decimal("0")
 
     selected_runs = grouped_runs.get(selected_key, []) if selected_key else []
+    selected_run_ids = [run.id for run in selected_runs]
+
     monthly_frequency: dict[str, int] = {}
-    for run in selected_runs:
-        for name, count in run.frequency_counts.items():
-            try:
-                numeric = int(count)
-            except (TypeError, ValueError):
-                numeric = 0
-            monthly_frequency[name] = monthly_frequency.get(name, 0) + numeric
+    if selected_run_ids:
+        frequency_rows = (
+            db.query(Payout.payment_frequency, func.count(func.distinct(Payout.code)))
+            .filter(Payout.schedule_run_id.in_(selected_run_ids))
+            .group_by(Payout.payment_frequency)
+            .order_by(Payout.payment_frequency)
+            .all()
+        )
+        for frequency, count in frequency_rows:
+            label = frequency or "unspecified"
+            monthly_frequency[label] = int(count or 0)
+
+    unique_models = _count_unique_models(db, selected_run_ids)
 
     total_payout = sum(
         ((getattr(run, "summary_total_payout", zero) or zero) for run in selected_runs),
@@ -95,7 +199,7 @@ def list_runs(
 
     monthly_summary = {
         "run_count": len(selected_runs),
-        "models_paid": sum(getattr(run, "summary_models_paid", 0) or 0 for run in selected_runs),
+        "models_paid": unique_models,
         "total_payout": total_payout,
         "paid_total": paid_total,
         "unpaid_total": unpaid_total,
@@ -127,6 +231,50 @@ def list_runs(
     for option in month_options:
         option["is_selected"] = option["value"] == selected_month_value
 
+    today = date.today()
+    today_key = (today.year, today.month)
+
+    sorted_runs = sorted(
+        all_runs,
+        key=lambda item: (item.target_year, item.target_month, item.created_at),
+        reverse=True,
+    )
+
+    recent_runs = [run for run in sorted_runs if (run.target_year, run.target_month) < today_key][:4]
+
+    recent_cards = [_build_run_card(run, zero) for run in recent_runs]
+    selected_run_cards = [_build_run_card(run, zero) for run in selected_runs]
+
+    if selected_runs:
+        primary_currency = getattr(selected_runs[0], "currency", None)
+    elif all_runs:
+        primary_currency = getattr(all_runs[0], "currency", None)
+    else:
+        primary_currency = None
+
+    if not primary_currency and selected_run_cards:
+        primary_currency = selected_run_cards[0].get("currency")
+    if not primary_currency and recent_cards:
+        primary_currency = recent_cards[0].get("currency")
+
+    monthly_summary["currency"] = primary_currency or "USD"
+
+    current_year = today.year
+    year_overview = []
+    for month_index in range(1, 13):
+        key = (current_year, month_index)
+        month_label = datetime(current_year, month_index, 1).strftime("%b")
+        count = len(grouped_runs.get(key, []))
+        year_overview.append(
+            {
+                "label": month_label,
+                "count": count,
+                "value": f"{current_year:04d}-{month_index:02d}",
+                "is_current": key == today_key,
+                "has_runs": bool(count),
+            }
+        )
+
     return templates.TemplateResponse(
         "schedules/list.html",
         {
@@ -141,7 +289,188 @@ def list_runs(
             "monthly_summary": monthly_summary,
             "monthly_frequency": monthly_frequency,
             "has_runs": bool(all_runs),
+            "recent_runs": recent_cards,
+            "selected_run_cards": selected_run_cards,
+            "year_overview": year_overview,
+            "view_all_url": f"/schedules/all?year={current_year}",
+            "table_view_url": f"/schedules/all-table?year={current_year}",
         },
+    )
+
+
+@router.get("/all")
+def list_runs_all(
+    request: Request,
+    year: int = Query(default=None, description="Target year to display"),
+    db: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    today = date.today()
+    target_year = year or today.year
+
+    runs_for_year, available_years, all_runs = _prepare_runs_by_year(db, target_year)
+
+    zero = Decimal("0")
+    run_cards = [_build_run_card(run, zero) for run in runs_for_year]
+
+    month_totals_map: dict[str, int] = {}
+    for run in run_cards:
+        month_totals_map[run["cycle"]] = month_totals_map.get(run["cycle"], 0) + 1
+
+    month_totals: list[dict[str, object]] = []
+    for month_index in range(1, 13):
+        label = datetime(target_year, month_index, 1).strftime("%b %Y")
+        month_value = f"{target_year:04d}-{month_index:02d}"
+        count = month_totals_map.get(label, 0)
+        month_totals.append(
+            {
+                "label": label,
+                "count": count,
+                "month_value": month_value,
+                "has_runs": bool(count),
+            }
+        )
+
+    return templates.TemplateResponse(
+        "schedules/all.html",
+        {
+            "request": request,
+            "user": user,
+            "year": target_year,
+            "runs": run_cards,
+            "available_years": available_years,
+            "month_totals": month_totals,
+            "table_view_url": f"/schedules/all-table?year={target_year}",
+        },
+    )
+
+
+@router.get("/all-table")
+def list_runs_all_table(
+    request: Request,
+    year: int = Query(default=None, description="Target year to display"),
+    db: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    today = date.today()
+    target_year = year or today.year
+
+    runs_for_year, available_years, all_runs = _prepare_runs_by_year(db, target_year)
+
+    zero = Decimal("0")
+
+    run_ids = [run.id for run in runs_for_year]
+    total_payout = sum((getattr(run, "summary_total_payout", zero) or zero) for run in runs_for_year)
+    paid_total = sum((getattr(run, "paid_total", zero) or zero) for run in runs_for_year)
+    unpaid_total = sum((getattr(run, "unpaid_total", zero) or zero) for run in runs_for_year)
+    models_paid = _count_unique_models(db, run_ids)
+
+    currency = None
+    if runs_for_year:
+        currency = getattr(runs_for_year[0], "currency", None)
+    elif all_runs:
+        currency = getattr(all_runs[0], "currency", None)
+
+    year_summary = {
+        "run_count": len(runs_for_year),
+        "total_payout": total_payout,
+        "paid_total": paid_total,
+        "unpaid_total": unpaid_total,
+        "models_paid": models_paid,
+        "currency": currency or "USD",
+    }
+
+    year_buttons = []
+    for yr in available_years:
+        year_buttons.append(
+            {
+                "label": yr,
+                "url": f"/schedules/all-table?year={yr}",
+                "is_selected": yr == target_year,
+            }
+        )
+
+    return templates.TemplateResponse(
+        "schedules/all_table.html",
+        {
+            "request": request,
+            "user": user,
+            "year": target_year,
+            "runs": runs_for_year,
+            "year_summary": year_summary,
+            "year_buttons": year_buttons,
+            "has_previous_years": len(available_years) > 1,
+            "card_view_url": f"/schedules/all?year={target_year}",
+            "export_url": f"/schedules/all-table/export?year={target_year}",
+        },
+    )
+
+
+@router.get("/all-table/export")
+def export_runs_all_table(
+    year: int = Query(default=None, description="Target year to export"),
+    db: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    today = date.today()
+    target_year = year or today.year
+
+    runs_for_year, _, all_runs = _prepare_runs_by_year(db, target_year)
+
+    zero = Decimal("0")
+
+    run_ids = [run.id for run in runs_for_year]
+
+    currency = None
+    if runs_for_year:
+        currency = getattr(runs_for_year[0], "currency", None)
+    elif all_runs:
+        currency = getattr(all_runs[0], "currency", None)
+    currency = currency or "USD"
+
+    rows: list[dict[str, object]] = []
+    for run in runs_for_year:
+        card = _build_run_card(run, zero)
+        frequency_display = _format_frequency_summary(card.get("frequency_counts"))
+        rows.append(
+            {
+                "Run ID": card["id"],
+                "Cycle": card["cycle"],
+                "Created": card["created"],
+                "Status": card["status"],
+                "Currency": card["currency"],
+                "Models Paid": card["models_paid"],
+                "Total Payout": float(card["total"] or zero),
+                "Paid": float(card["paid"] or zero),
+                "Outstanding": float(card["outstanding"] or zero),
+                "Frequency Mix": frequency_display,
+            }
+        )
+
+    columns = [
+        "Run ID",
+        "Cycle",
+        "Created",
+        "Status",
+        "Currency",
+        "Models Paid",
+        "Total Payout",
+        "Paid",
+        "Outstanding",
+        "Frequency Mix",
+    ]
+
+    dataframe = pd.DataFrame(rows, columns=columns)
+    buffer = io.BytesIO()
+    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+        dataframe.to_excel(writer, sheet_name=f"Runs_{target_year}", index=False)
+
+    buffer.seek(0)
+    filename = f"payroll_runs_{target_year}.xlsx"
+    return StreamingResponse(
+        buffer,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
 
 

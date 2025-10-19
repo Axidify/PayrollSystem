@@ -115,6 +115,17 @@ section {
     margin-bottom: 24px;
 }
 
+.header-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+}
+
+.header-actions .button {
+    white-space: nowrap;
+}
+
 @media (max-width: 640px) {
     .page-header {
         flex-direction: column;
@@ -284,6 +295,327 @@ section {
 
 .card > form {
     width: 100%;
+}
+
+.section-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.section-heading h2 {
+    margin: 0;
+    font-size: 1.2rem;
+}
+
+.section-heading p {
+    margin: 4px 0 0;
+    color: #94a3b8;
+    font-size: 0.95rem;
+}
+
+.heading-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.calendar-card {
+    margin-bottom: 24px;
+}
+
+.calendar-strip {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    padding: 6px 2px 2px;
+    margin: 0 -2px -4px;
+    scrollbar-width: thin;
+}
+
+.calendar-strip::-webkit-scrollbar {
+    height: 6px;
+}
+
+.calendar-strip::-webkit-scrollbar-thumb {
+    background: rgba(100, 116, 139, 0.35);
+    border-radius: 999px;
+}
+
+.calendar-chip {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-width: 68px;
+    padding: 12px 10px;
+    border-radius: 12px;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    background: rgba(30, 41, 59, 0.5);
+    color: #e2e8f0;
+    text-decoration: none;
+    transition: transform 0.15s ease, border-color 0.2s ease;
+}
+
+.calendar-chip:hover {
+    transform: translateY(-2px);
+    border-color: rgba(96, 165, 250, 0.8);
+}
+
+.calendar-chip.is-active {
+    background: rgba(37, 99, 235, 0.25);
+    border-color: rgba(59, 130, 246, 0.9);
+    color: #bfdbfe;
+}
+
+.calendar-chip.is-current:not(.is-active) {
+    border-color: rgba(34, 197, 94, 0.6);
+}
+
+.calendar-chip.is-empty {
+    opacity: 0.6;
+}
+
+.calendar-chip__label {
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+
+.calendar-chip__count {
+    font-size: 0.75rem;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.25);
+    font-weight: 600;
+}
+
+.stat-grid {
+    display: grid;
+    gap: 16px;
+    margin: 24px 0;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.stat-card {
+    background: rgba(30, 41, 59, 0.6);
+    border-radius: 14px;
+    padding: 20px;
+    display: grid;
+    gap: 8px;
+    border: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.highlight-grid {
+    display: grid;
+    gap: 16px;
+    margin: 0 0 24px;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
+.highlight-card {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.highlight-card .run-grid {
+    flex-grow: 1;
+}
+
+.highlight-card .empty-state {
+    margin: 0;
+}
+
+.year-switch {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+}
+
+.stat-card__label {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #94a3b8;
+    font-weight: 600;
+}
+
+.stat-card__value {
+    font-size: 1.65rem;
+    font-weight: 700;
+    color: #e2e8f0;
+}
+
+.stat-card__value.is-warning {
+    color: #f97316;
+}
+
+.stat-card__hint {
+    color: #cbd5e1;
+    font-size: 0.9rem;
+}
+
+.run-grid {
+    display: grid;
+    gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.run-card {
+    background: rgba(15, 23, 42, 0.65);
+    border: 1px solid rgba(148, 163, 184, 0.12);
+    border-radius: 14px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-height: 100%;
+}
+
+.run-card__header {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: flex-start;
+}
+
+.run-card__titles {
+    display: grid;
+    gap: 4px;
+}
+
+.run-card__cycle {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #e2e8f0;
+}
+
+.run-card__meta {
+    font-size: 0.85rem;
+    color: #94a3b8;
+}
+
+.run-card__metrics {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.run-card__metric-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #94a3b8;
+    font-weight: 600;
+}
+
+.run-card__metric-value {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: #e2e8f0;
+}
+
+.run-card__metric-value.is-warning {
+    color: #f97316;
+}
+
+.run-card__frequencies {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.frequency-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    background: rgba(59, 130, 246, 0.1);
+    color: #bfdbfe;
+    border: 1px solid rgba(59, 130, 246, 0.35);
+    text-decoration: none;
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.frequency-chip:hover {
+    border-color: rgba(59, 130, 246, 0.6);
+    background: rgba(59, 130, 246, 0.18);
+}
+
+.frequency-chip.is-empty {
+    opacity: 0.6;
+}
+
+.run-card__empty {
+    color: #cbd5e1;
+    font-size: 0.9rem;
+}
+
+.run-card__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    border-top: 1px solid rgba(148, 163, 184, 0.12);
+    padding-top: 12px;
+}
+
+.run-card__actions form {
+    margin: 0;
+}
+
+.link-button.danger {
+    color: #f87171;
+}
+
+.link-button.danger:hover {
+    color: #fca5a5;
+}
+
+.year-filter {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: flex-end;
+}
+
+.year-filter__group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.year-filter__group label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.year-filter select {
+    min-width: 140px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    background: rgba(15, 23, 42, 0.65);
+    color: #e2e8f0;
+}
+
+.year-filter__actions {
+    display: flex;
+    gap: 10px;
+}
+
+.month-summary {
+    margin-top: 18px;
 }
 
 .data-table {
@@ -795,6 +1127,11 @@ section {
     color: #f87171;
 }
 
+.status-chip--success {
+    background: rgba(34, 197, 94, 0.15);
+    color: #34d399;
+}
+
 .status-chip--warning {
     background: rgba(234, 179, 8, 0.18);
     color: #facc15;
@@ -841,6 +1178,11 @@ section {
 .table-card .data-table td,
 .table-card .data-table th {
     border-color: rgba(148, 163, 184, 0.12);
+}
+
+.table-muted {
+    color: #94a3b8;
+    font-size: 0.9rem;
 }
 
 .empty-state {
