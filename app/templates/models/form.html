@@ -20,19 +20,19 @@
                 </select>
             </div>
             <div class="form-row">
-                <label for="code">Code</label>
+                <label for="code">Code <span class="required-badge">Required</span></label>
                 <input id="code" name="code" type="text" required value="{{ model.code if model else '' }}" />
             </div>
             <div class="form-row">
-                <label for="real_name">Real Name</label>
+                <label for="real_name">Real Name <span class="required-badge">Required</span></label>
                 <input id="real_name" name="real_name" type="text" required value="{{ model.real_name if model else '' }}" />
             </div>
             <div class="form-row">
-                <label for="working_name">Working Name</label>
+                <label for="working_name">Working Name <span class="required-badge">Required</span></label>
                 <input id="working_name" name="working_name" type="text" required value="{{ model.working_name if model else '' }}" />
             </div>
             <div class="form-row">
-                <label for="start_date">Start Date</label>
+                <label for="start_date">Start Date <span class="required-badge">Required</span></label>
                 <input id="start_date" name="start_date" type="date" required value="{{ model.start_date if model else '' }}" />
             </div>
             <div class="form-row">
@@ -40,7 +40,7 @@
                 <input id="payment_method" name="payment_method" type="text" required value="{{ model.payment_method if model else '' }}" />
             </div>
             <div class="form-row">
-                <label for="payment_frequency">Frequency</label>
+                <label for="payment_frequency">Frequency <span class="required-badge">Required</span></label>
                 {% set freq_value = model.payment_frequency if model else 'weekly' %}
                 <select id="payment_frequency" name="payment_frequency" required>
                     <option value="weekly" {% if freq_value == 'weekly' %}selected{% endif %}>Weekly</option>
@@ -49,7 +49,7 @@
                 </select>
             </div>
             <div class="form-row">
-                <label for="amount_monthly">Monthly Amount (USD)</label>
+                <label for="amount_monthly">Monthly Amount (USD) <span class="required-badge">Required</span></label>
                 <input id="amount_monthly" name="amount_monthly" type="number" step="0.01" min="0" required value="{{ '%.2f'|format(model.amount_monthly) if model else '' }}" />
             </div>
         </div>

@@ -3,9 +3,10 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from decimal import Decimal, ROUND_HALF_UP
-from typing import Optional
+from typing import Any, Optional
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
+from pydantic import FieldValidationInfo
 
 from app.models import FREQUENCY_ENUM, STATUS_ENUM
 
@@ -21,21 +22,38 @@ class ModelBase(BaseModel):
     amount_monthly: Decimal = Field(..., gt=0)
     crypto_wallet: Optional[str] = Field(None, max_length=200)
 
-    @validator("status")
+    @field_validator("status")
     def validate_status(cls, value: str) -> str:
         value_title = value.title()
         if value_title not in STATUS_ENUM:
             raise ValueError("Status must be Active or Inactive.")
         return value_title
 
-    @validator("payment_frequency")
+    @field_validator("code", "real_name", "working_name", "payment_method", mode="before")
+    def strip_required_strings(cls, value: Any, info: FieldValidationInfo) -> str:
+        if value is None:
+            raise ValueError(f"{info.field_name.replace('_', ' ').title()} is required.")
+        value_str = str(value).strip()
+        if not value_str:
+            raise ValueError(f"{info.field_name.replace('_', ' ').title()} cannot be empty.")
+        return value_str
+
+    @field_validator("start_date", mode="before")
+    def ensure_start_date_present(cls, value: Any) -> Any:
+        if value is None:
+            raise ValueError("Start date is required.")
+        if isinstance(value, str) and not value.strip():
+            raise ValueError("Start date is required.")
+        return value
+
+    @field_validator("payment_frequency")
     def validate_frequency(cls, value: str) -> str:
         value_lower = value.lower()
         if value_lower not in FREQUENCY_ENUM:
             raise ValueError("Payment frequency must be weekly, biweekly, or monthly.")
         return value_lower
 
-    @validator("amount_monthly")
+    @field_validator("amount_monthly")
     def quantize_amount(cls, value: Decimal) -> Decimal:
         return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
