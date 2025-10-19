@@ -86,6 +86,14 @@ def ensure_schema_updates() -> None:
             with engine.begin() as connection:
                 connection.execute(text("ALTER TABLE users ADD COLUMN role VARCHAR(50) NOT NULL DEFAULT 'user'"))
                 print("[ensure_schema_updates] Successfully added role column to users table")
+        else:
+            # Column exists, but make sure admin user has admin role
+            print("[ensure_schema_updates] Checking and fixing admin user role")
+            with engine.begin() as connection:
+                # Update any admin user to have admin role
+                connection.execute(text("UPDATE users SET role = 'admin' WHERE username = 'admin' AND role != 'admin'"))
+                # Ensure no NULL roles exist
+                connection.execute(text("UPDATE users SET role = 'user' WHERE role IS NULL"))
     except Exception as e:
         print(f"[ensure_schema_updates] Error updating users table: {e}")
     
