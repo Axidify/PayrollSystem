@@ -2,12 +2,14 @@
 from __future__ import annotations
 
 import calendar
+import csv
+import io
 import json
 from datetime import date, datetime
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
 from app import crud
@@ -269,9 +271,51 @@ def download_export(run_id: int, file_type: str, db: Session = Depends(get_sessi
     base_filename = f"pay_schedule_{run.target_year:04d}_{run.target_month:02d}_run{run.id}"
     export_dir = Path(run.export_path)
 
+    # For schedule_csv, generate from database payouts to include status
+    if file_type == "schedule_csv":
+        # Build CSV from payouts in database (includes status)
+        payouts = sorted(run.payouts, key=lambda p: (p.pay_date, p.code))
+        
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        # Write header
+        writer.writerow([
+            "Pay Date",
+            "Code",
+            "Real Name",
+            "Working Name",
+            "Method",
+            "Frequency",
+            "Amount",
+            "Status",
+            "Notes & Actions",
+        ])
+        
+        # Write data rows
+        for payout in payouts:
+            writer.writerow([
+                payout.pay_date.strftime("%m/%d/%Y") if payout.pay_date else "",
+                payout.code or "",
+                payout.real_name or "",
+                payout.working_name or "",
+                payout.payment_method or "",
+                payout.payment_frequency.title() if payout.payment_frequency else "",
+                f"{payout.amount:.2f}" if payout.amount else "",
+                payout.status.replace("_", " ").title() if payout.status else "",
+                payout.notes or "",
+            ])
+        
+        # Return as streaming response
+        return StreamingResponse(
+            iter([output.getvalue()]),
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename={base_filename}.csv"},
+        )
+
+    # For other file types, use the pre-generated exports
     file_mapping = {
         "xlsx": export_dir / f"{base_filename}.xlsx",
-        "schedule_csv": export_dir / f"{base_filename}.csv",
         "models_csv": export_dir / f"{base_filename}_models.csv",
         "validation_csv": export_dir / f"{base_filename}_validation.csv",
     }
