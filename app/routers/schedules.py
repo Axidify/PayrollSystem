@@ -274,3 +274,36 @@ def update_payout_record(
     trimmed = notes.strip()
     crud.update_payout(db, payout, trimmed if trimmed else None, status_value)
     return RedirectResponse(url=f"/schedules/{run_id}", status_code=303)
+
+
+@router.post("/{run_id}/payouts/bulk-update")
+def bulk_update_payouts(
+    run_id: int,
+    payout_ids: str = Form(""),  # comma-separated IDs
+    status: str = Form("not_paid"),
+    notes: str = Form(""),
+    db: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """Bulk update status and notes for multiple payouts."""
+    if not payout_ids.strip():
+        return RedirectResponse(url=f"/schedules/{run_id}", status_code=303)
+    
+    try:
+        ids = [int(id.strip()) for id in payout_ids.split(",") if id.strip()]
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid payout IDs")
+    
+    status_value = status.strip().lower()
+    if status_value not in PAYOUT_STATUS_ENUM:
+        raise HTTPException(status_code=400, detail="Invalid payout status")
+    
+    trimmed_notes = notes.strip() if notes.strip() else None
+    
+    # Update each payout
+    for payout_id in ids:
+        payout = crud.get_payout(db, payout_id)
+        if payout and payout.schedule_run_id == run_id:
+            crud.update_payout(db, payout, trimmed_notes, status_value)
+    
+    return RedirectResponse(url=f"/schedules/{run_id}", status_code=303)
