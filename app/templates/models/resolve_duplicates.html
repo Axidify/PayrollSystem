@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block title %}Resolve Duplicate Payments · Models · Payroll Scheduler{% endblock %}
+{% block content %}
+<section class="page-header">
+    <div>
+        <h1 class="page-title">Resolve Duplicate Payments</h1>
+        <p>The import file contains duplicate payment entries. Please review and decide which to keep.</p>
+    </div>
+</section>
+
+{% if errors %}
+<section class="card" style="max-width: 900px; background: rgba(239, 68, 68, 0.1); border-left: 4px solid #ef4444;">
+    <h2 style="color: #fca5a5; margin-top: 0;">Import Errors</h2>
+    <div style="color: #cbd5e1;">
+        {% for error in errors %}
+        <div style="margin-bottom: 8px;">• {{ error }}</div>
+        {% endfor %}
+    </div>
+    <p style="color: #cbd5e1; font-size: 0.9rem; margin: 12px 0 0 0;">Please fix these errors in your CSV and try again.</p>
+</section>
+{% endif %}
+
+{% if payout_duplicates %}
+<section class="card" style="max-width: 1000px;">
+    <h2>Duplicate Payments Found</h2>
+    <p style="color: #cbd5e1; margin-bottom: 20px;">The following payments appear multiple times with the same date, amount, and status:</p>
+    
+    <form id="resolution-form" method="post" action="/models/import/resolve" style="display: flex; flex-direction: column; gap: 24px;">
+        <input type="hidden" name="batch" value="{{ batch_id }}">
+        
+        <!-- Action Selection -->
+        <div style="background: rgba(51, 65, 85, 0.3); padding: 16px; border-radius: 8px;">
+            <label style="display: block; font-weight: 600; margin-bottom: 12px; color: #f8fafc;">What would you like to do?</label>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #cbd5e1;">
+                    <input type="radio" name="action" value="keep_all" checked style="cursor: pointer;">
+                    <span><strong>Keep All</strong> - Import everything as-is (no deletion)</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #cbd5e1;">
+                    <input type="radio" name="action" value="keep_one" style="cursor: pointer;">
+                    <span><strong>Keep One</strong> - Select which version to keep, delete others</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #cbd5e1;">
+                    <input type="radio" name="action" value="delete_all" style="cursor: pointer;">
+                    <span><strong>Delete All</strong> - Remove all duplicates from database</span>
+                </label>
+            </div>
+        </div>
+        
+        <!-- Duplicate Details -->
+        {% for dup_key, duplicates in payout_duplicates.items() %}
+        {% set first_dup = duplicates[0] %}
+        <div style="background: rgba(51, 65, 85, 0.3); padding: 16px; border-radius: 8px; border-left: 4px solid #3b82f6;">
+            <h3 style="color: #60a5fa; margin-top: 0; margin-bottom: 12px;">
+                Payment: {{ first_dup.csv_data.pay_date }} | ${{ first_dup.csv_data.amount }} | {{ first_dup.csv_data.status|title }}
+            </h3>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                <!-- CSV Version -->
+                <div style="background: rgba(59, 130, 246, 0.1); padding: 12px; border-radius: 6px; border: 1px solid rgba(59, 130, 246, 0.3);">
+                    <p style="margin: 0 0 8px 0; font-weight: 600; color: #60a5fa;">📋 CSV Version (Row {{ first_dup.row_num }})</p>
+                    <table style="width: 100%; font-size: 0.9rem; margin-bottom: 12px;">
+                        <tr>
+                            <td style="color: #94a3b8; padding: 4px 0;">Date:</td>
+                            <td style="color: #f8fafc; padding: 4px 0;">{{ first_dup.csv_data.pay_date }}</td>
+                        </tr>
+                        <tr>
+                            <td style="color: #94a3b8; padding: 4px 0;">Amount:</td>
+                            <td style="color: #f8fafc; padding: 4px 0;">${{ first_dup.csv_data.amount }}</td>
+                        </tr>
+                        <tr>
+                            <td style="color: #94a3b8; padding: 4px 0;">Status:</td>
+                            <td style="color: #f8fafc; padding: 4px 0;">{{ first_dup.csv_data.status|title }}</td>
+                        </tr>
+                        <tr>
+                            <td style="color: #94a3b8; padding: 4px 0; vertical-align: top;">Notes:</td>
+                            <td style="color: #f8fafc; padding: 4px 0;">{{ first_dup.csv_data.notes or '—' }}</td>
+                        </tr>
+                    </table>
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="radio" name="keep_{{ dup_key }}" value="csv" style="cursor: pointer;">
+                        <span style="color: #cbd5e1; font-size: 0.85rem;">Choose this version</span>
+                    </label>
+                </div>
+                
+                <!-- Existing Database Version(s) -->
+                {% for existing_dup in duplicates %}
+                <div style="background: rgba(34, 197, 94, 0.1); padding: 12px; border-radius: 6px; border: 1px solid rgba(34, 197, 94, 0.3);">
+                    <p style="margin: 0 0 8px 0; font-weight: 600; color: #4ade80;">💾 Database Record #{{ existing_dup.existing_payout_id }}</p>
+                    <table style="width: 100%; font-size: 0.9rem; margin-bottom: 12px;">
+                        <tr>
+                            <td style="color: #94a3b8; padding: 4px 0;">Date:</td>
+                            <td style="color: #f8fafc; padding: 4px 0;">{{ existing_dup.existing_data.pay_date }}</td>
+                        </tr>
+                        <tr>
+                            <td style="color: #94a3b8; padding: 4px 0;">Amount:</td>
+                            <td style="color: #f8fafc; padding: 4px 0;">${{ existing_dup.existing_data.amount }}</td>
+                        </tr>
+                        <tr>
+                            <td style="color: #94a3b8; padding: 4px 0;">Status:</td>
+                            <td style="color: #f8fafc; padding: 4px 0;">{{ existing_dup.existing_data.status|title }}</td>
+                        </tr>
+                        <tr>
+                            <td style="color: #94a3b8; padding: 4px 0; vertical-align: top;">Notes:</td>
+                            <td style="color: #f8fafc; padding: 4px 0;">{{ existing_dup.existing_data.notes or '—' }}</td>
+                        </tr>
+                    </table>
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="radio" name="keep_{{ dup_key }}" value="{{ existing_dup.existing_payout_id }}" style="cursor: pointer;">
+                        <span style="color: #cbd5e1; font-size: 0.85rem;">Choose this version</span>
+                    </label>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+        
+        <input type="hidden" name="selected_ids" id="selected-ids" value="">
+        
+        <!-- Action Buttons -->
+        <div style="display: flex; gap: 12px; margin-top: 24px;">
+            <button class="button" type="submit">Process Import</button>
+            <a class="button secondary" href="/models">Cancel</a>
+        </div>
+    </form>
+</section>
+
+<script>
+document.getElementById('resolution-form').addEventListener('submit', function(e) {
+    const action = document.querySelector('input[name="action"]:checked').value;
+    const selected = {};
+    
+    if (action === 'keep_one') {
+        // Collect selected IDs for "keep one" action
+        document.querySelectorAll('input[type="radio"]:checked').forEach(radio => {
+            if (radio.name.startsWith('keep_')) {
+                const dup_key = radio.name.substring(5);
+                selected[dup_key] = radio.value;
+            }
+        });
+    }
+    
+    document.getElementById('selected-ids').value = JSON.stringify(selected);
+});
+
+// Show/hide selection UI based on action
+document.querySelectorAll('input[name="action"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+        const selectionUi = document.querySelectorAll('label input[type="radio"]');
+        if (this.value === 'keep_one') {
+            selectionUi.forEach(el => el.style.opacity = '1');
+        } else {
+            selectionUi.forEach(el => el.style.opacity = '0.5');
+        }
+    });
+});
+</script>
+{% else %}
+<section class="card" style="max-width: 900px;">
+    <p style="color: #cbd5e1; text-align: center; padding: 20px;">No duplicate payments found in your import.</p>
+    <div style="display: flex; gap: 12px; justify-content: center;">
+        <a class="button" href="/models">Back to Models</a>
+    </div>
+</section>
+{% endif %}
+
+{% endblock %}

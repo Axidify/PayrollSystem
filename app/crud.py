@@ -437,3 +437,23 @@ def get_paid_payouts_for_model(db: Session, model_id: int) -> Sequence[Payout]:
     )
     return db.execute(stmt).scalars().all()
 
+
+def find_duplicate_payouts(
+    db: Session, 
+    model_id: int, 
+    pay_date: date, 
+    amount: Decimal, 
+    status: str
+) -> Sequence[Payout]:
+    """
+    Find existing payouts matching the given criteria (date, amount, status).
+    Used for duplicate detection.
+    """
+    stmt = (
+        select(Payout)
+        .where(Payout.model_id == model_id)
+        .where(Payout.pay_date == pay_date)
+        .where(Payout.amount == amount)
+        .where(Payout.status == status)
+    )
+    return db.execute(stmt).scalars().all()

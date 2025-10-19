@@ -3,8 +3,11 @@ from __future__ import annotations
 
 import csv
 import io
+import json
+import tempfile
 from datetime import date
 from decimal import Decimal
+from pathlib import Path
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile, File
@@ -270,7 +273,7 @@ async def import_models_csv(
     db: Session = Depends(get_session),
     user: User = Depends(get_admin_user),
 ):
-    """Import models from a CSV file."""
+    """Import models from a CSV file with optional payment data and duplicate detection."""
     
     if not file.filename or not file.filename.lower().endswith('.csv'):
         raise HTTPException(status_code=400, detail="File must be a CSV file")
@@ -287,6 +290,7 @@ async def import_models_csv(
         # Normalize field names
         required_fields = {'status', 'code', 'real_name', 'working_name', 'start_date', 
                           'payment_method', 'payment_frequency', 'amount_monthly'}
+        optional_payment_fields = {'pay_date', 'payment_amount', 'payment_status'}
         field_names_lower = {f.lower(): f for f in reader.fieldnames}
         
         # Check for required fields
@@ -297,13 +301,17 @@ async def import_models_csv(
                 detail=f"Missing required columns: {', '.join(sorted(missing))}"
             )
         
-        # Import models
-        imported_count = 0
+        # Check if CSV has payment data (all payment fields must be present together)
+        has_payment_data = all(pf in field_names_lower for pf in optional_payment_fields)
+        
+        # Parse all rows
+        valid_rows = []
         errors = []
+        payout_duplicates = {}  # code -> [(row_num, existing_payout_id), ...]
         
         for row_num, row in enumerate(reader, start=2):
             try:
-                # Extract values (handle both lowercase and original case)
+                # Extract model values (handle both lowercase and original case)
                 code = row.get('code') or row.get('Code')
                 status_val = row.get('status') or row.get('Status')
                 real_name = row.get('real_name') or row.get('Real Name')
@@ -350,46 +358,243 @@ async def import_models_csv(
                     errors.append(f"Row {row_num}: Invalid frequency '{payment_frequency}'. Must be weekly, biweekly, or monthly")
                     continue
                 
-                # Check if code already exists
-                existing = crud.get_model_by_code(db, code)
-                if existing:
-                    errors.append(f"Row {row_num}: Model code '{code}' already exists")
-                    continue
+                # Extract and validate payment data if present
+                payout_data = None
+                if has_payment_data:
+                    try:
+                        pay_date_str = row.get('pay_date') or row.get('Pay Date')
+                        payment_amount_str = row.get('payment_amount') or row.get('Payment Amount')
+                        payment_status_str = row.get('payment_status') or row.get('Payment Status')
+                        payment_notes_str = row.get('payment_notes') or row.get('Payment Notes')
+                        
+                        if pay_date_str and payment_amount_str and payment_status_str:
+                            # Parse payment date
+                            pay_date_obj = date.fromisoformat(pay_date_str.strip())
+                            
+                            # Parse payment amount
+                            payment_amount = Decimal(payment_amount_str.strip())
+                            if payment_amount <= 0:
+                                errors.append(f"Row {row_num}: Payment amount must be > 0")
+                                continue
+                            
+                            # Validate payment status
+                            payment_status = payment_status_str.strip().lower()
+                            if payment_status not in ['paid', 'on_hold', 'not_paid']:
+                                errors.append(f"Row {row_num}: Invalid payment status '{payment_status_str}'. Must be 'paid', 'on_hold', or 'not_paid'")
+                                continue
+                            
+                            payout_data = {
+                                'pay_date': pay_date_obj,
+                                'amount': payment_amount,
+                                'status': payment_status,
+                                'notes': payment_notes_str.strip() if payment_notes_str else None,
+                            }
+                    except ValueError as e:
+                        errors.append(f"Row {row_num}: Invalid payment data - {str(e)}")
+                        continue
                 
-                # Create model
-                model_data = ModelCreate(
-                    status=status_val,
-                    code=code,
-                    real_name=real_name.strip(),
-                    working_name=working_name.strip(),
-                    start_date=start_date_obj,
-                    payment_method=payment_method.strip(),
-                    payment_frequency=payment_frequency_val,
-                    amount_monthly=amount,
-                    crypto_wallet=crypto_wallet.strip() if crypto_wallet else None,
-                )
+                # Store valid parsed row
+                parsed_row = {
+                    'row_num': row_num,
+                    'code': code,
+                    'status': status_val,
+                    'real_name': real_name.strip(),
+                    'working_name': working_name.strip(),
+                    'start_date': start_date_obj,
+                    'payment_method': payment_method.strip(),
+                    'payment_frequency': payment_frequency_val,
+                    'amount_monthly': amount,
+                    'crypto_wallet': crypto_wallet.strip() if crypto_wallet else None,
+                    'payout_data': payout_data,
+                }
+                valid_rows.append(parsed_row)
                 
-                crud.create_model(db, model_data)
-                imported_count += 1
+                # Check for duplicate payouts with existing data
+                if payout_data:
+                    # Get model to check its ID
+                    existing_model = crud.get_model_by_code(db, code)
+                    if existing_model:
+                        duplicates = crud.find_duplicate_payouts(
+                            db,
+                            existing_model.id,
+                            payout_data['pay_date'],
+                            payout_data['amount'],
+                            payout_data['status'],
+                        )
+                        if duplicates:
+                            key = f"{code}_{payout_data['pay_date']}_{payout_data['amount']}_{payout_data['status']}"
+                            if key not in payout_duplicates:
+                                payout_duplicates[key] = []
+                            for dup in duplicates:
+                                payout_duplicates[key].append({
+                                    'row_num': row_num,
+                                    'existing_payout_id': dup.id,
+                                    'csv_data': payout_data,
+                                    'existing_data': {
+                                        'id': dup.id,
+                                        'pay_date': dup.pay_date.isoformat(),
+                                        'amount': str(dup.amount),
+                                        'status': dup.status,
+                                        'notes': dup.notes,
+                                    }
+                                })
             
             except Exception as e:
                 errors.append(f"Row {row_num}: {str(e)}")
         
-        # Prepare response message
-        if imported_count == 0 and errors:
-            raise HTTPException(status_code=400, detail=f"Import failed. Errors: {'; '.join(errors[:5])}")
+        # If there are payout duplicates or errors, show resolution UI
+        if payout_duplicates or errors:
+            temp_data = {
+                'valid_rows': valid_rows,
+                'payout_duplicates': payout_duplicates,
+                'errors': errors,
+                'has_payment_data': has_payment_data,
+            }
+            # Store as JSON file in temp directory
+            temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False, dir='data')
+            json.dump(temp_data, temp_file, default=str)
+            temp_file.close()
+            
+            batch_id = Path(temp_file.name).stem
+            return RedirectResponse(url=f"/models/import/resolve?batch={batch_id}", status_code=303)
+        
+        # No duplicates - proceed with import
+        imported_count = 0
+        for row in valid_rows:
+            # Check if code already exists (for new imports)
+            if not crud.get_model_by_code(db, row['code']):
+                model_data = ModelCreate(
+                    status=row['status'],
+                    code=row['code'],
+                    real_name=row['real_name'],
+                    working_name=row['working_name'],
+                    start_date=row['start_date'],
+                    payment_method=row['payment_method'],
+                    payment_frequency=row['payment_frequency'],
+                    amount_monthly=row['amount_monthly'],
+                    crypto_wallet=row['crypto_wallet'],
+                )
+                crud.create_model(db, model_data)
+                imported_count += 1
         
         # Return redirect with success message
         message = f"Successfully imported {imported_count} model{'s' if imported_count != 1 else ''}"
-        if errors:
-            message += f". {len(errors)} row(s) had errors"
-        
         return RedirectResponse(url="/models?message=" + message, status_code=303)
     
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing file: {str(e)}")
+
+
+@router.get("/import/resolve")
+def resolve_import_duplicates(
+    batch: str,
+    request: Request,
+    db: Session = Depends(get_session),
+    user: User = Depends(get_admin_user),
+):
+    """Show duplicate resolution UI."""
+    try:
+        batch_file = Path("data") / f"{batch}.json"
+        if not batch_file.exists():
+            raise HTTPException(status_code=404, detail="Batch file not found")
+        
+        with open(batch_file) as f:
+            batch_data = json.load(f)
+        
+        return templates.TemplateResponse(
+            "models/resolve_duplicates.html",
+            {
+                "request": request,
+                "user": user,
+                "batch_id": batch,
+                "payout_duplicates": batch_data.get('payout_duplicates', {}),
+                "errors": batch_data.get('errors', []),
+                "has_payment_data": batch_data.get('has_payment_data', False),
+            },
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error loading batch: {str(e)}")
+
+
+@router.post("/import/resolve")
+async def process_duplicate_resolution(
+    batch: str = Form(...),
+    action: str = Form(...),  # "keep_all", "keep_one", "delete_all"
+    selected_ids: str = Form(default=""),  # JSON array of duplicate IDs to keep
+    db: Session = Depends(get_session),
+    user: User = Depends(get_admin_user),
+):
+    """Process duplicate resolution and complete import."""
+    try:
+        batch_file = Path("data") / f"{batch}.json"
+        if not batch_file.exists():
+            raise HTTPException(status_code=404, detail="Batch file not found")
+        
+        with open(batch_file) as f:
+            batch_data = json.load(f)
+        
+        valid_rows = batch_data['valid_rows']
+        payout_duplicates = batch_data['payout_duplicates']
+        
+        # Parse selected IDs to keep/delete
+        selected = json.loads(selected_ids) if selected_ids else {}
+        
+        # Process duplicate decisions
+        for dup_key, duplicates_list in payout_duplicates.items():
+            if action == "delete_all":
+                # Delete all matching payouts
+                for dup in duplicates_list:
+                    payout_id = dup['existing_payout_id']
+                    payout = db.get(crud.Payout, payout_id)
+                    if payout:
+                        db.delete(payout)
+            elif action == "keep_one" and dup_key in selected:
+                # Keep only selected ID, delete others
+                keep_id = selected[dup_key]
+                for dup in duplicates_list:
+                    if dup['existing_payout_id'] != keep_id:
+                        payout = db.get(crud.Payout, dup['existing_payout_id'])
+                        if payout:
+                            db.delete(payout)
+            # "keep_all" means don't delete anything
+        
+        db.commit()
+        
+        # Now import valid rows
+        imported_count = 0
+        for row in valid_rows:
+            # Check if model code already exists
+            existing_model = crud.get_model_by_code(db, row['code'])
+            if not existing_model:
+                model_data = ModelCreate(
+                    status=row['status'],
+                    code=row['code'],
+                    real_name=row['real_name'],
+                    working_name=row['working_name'],
+                    start_date=row['start_date'],
+                    payment_method=row['payment_method'],
+                    payment_frequency=row['payment_frequency'],
+                    amount_monthly=row['amount_monthly'],
+                    crypto_wallet=row['crypto_wallet'],
+                )
+                crud.create_model(db, model_data)
+                imported_count += 1
+        
+        # Clean up batch file
+        batch_file.unlink(missing_ok=True)
+        
+        # Return success
+        message = f"Successfully imported {imported_count} model{'s' if imported_count != 1 else ''}"
+        return RedirectResponse(url=f"/models?message={message}", status_code=303)
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error processing resolution: {str(e)}")
 
 
 @router.get("/new")
