@@ -104,23 +104,36 @@ def create_schedule_run(
     return run
 
 
-def store_payouts(db: Session, run: ScheduleRun, payouts: Iterable[dict], amount_column: str) -> None:
-    objects = [
-        Payout(
+def store_payouts(db: Session, run: ScheduleRun, payouts: Iterable[dict], amount_column: str, old_payout_data: dict | None = None) -> None:
+    """Store payouts, preserving status and notes from previous payouts when available."""
+    if old_payout_data is None:
+        old_payout_data = {}
+    
+    objects = []
+    for payout in payouts:
+        pay_date = payout["Pay Date"]
+        code = payout["Code"]
+        key = (code, pay_date)
+        
+        # Check if this payout existed before - if so, preserve its status and notes
+        status = old_payout_data.get(key, {}).get("status", "not_paid")
+        notes = old_payout_data.get(key, {}).get("notes", payout.get("Notes"))
+        
+        payout_obj = Payout(
             schedule_run_id=run.id,
-            model_id=_lookup_model_id(db, payout["Code"]),
-            pay_date=payout["Pay Date"],
-            code=payout["Code"],
+            model_id=_lookup_model_id(db, code),
+            pay_date=pay_date,
+            code=code,
             real_name=payout["Real Name"],
             working_name=payout["Working Name"],
             payment_method=payout["Payment Method"],
             payment_frequency=payout["Payment Frequency"],
             amount=payout.get(amount_column),
-            notes=payout.get("Notes"),
-            status="not_paid",
+            notes=notes,
+            status=status,
         )
-        for payout in payouts
-    ]
+        objects.append(payout_obj)
+    
     db.add_all(objects)
     db.commit()
 
@@ -280,6 +293,7 @@ def run_payment_summary(db: Session, run_id: int) -> dict[str, Decimal | int]:
         select(func.coalesce(func.sum(Payout.amount), 0))
         .where(Payout.schedule_run_id == run_id, Payout.status != "paid")
     )
+    # Count unique models that have at least one payout with status "paid"
     paid_models_stmt = (
         select(func.count(func.distinct(Payout.code)))
         .where(Payout.schedule_run_id == run_id, Payout.status == "paid")
