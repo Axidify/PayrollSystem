@@ -33,7 +33,7 @@ def list_users(
         {
             "request": request,
             "users": users,
-            "current_user": admin,
+            "user": admin,
         },
     )
 
@@ -49,7 +49,7 @@ def new_user_form(
         {
             "request": request,
             "action": "create",
-            "current_user": admin,
+            "user": admin,
         },
     )
 
@@ -73,7 +73,7 @@ def create_user(
                 "request": request,
                 "action": "create",
                 "error": "Username already exists",
-                "current_user": admin,
+                "user": admin,
             },
             status_code=400,
         )
@@ -86,7 +86,7 @@ def create_user(
                 "request": request,
                 "action": "create",
                 "error": "Invalid role",
-                "current_user": admin,
+                "user": admin,
             },
             status_code=400,
         )
@@ -114,8 +114,8 @@ def edit_user_form(
         {
             "request": request,
             "action": "edit",
-            "user": user,
-            "current_user": admin,
+            "form_user": user,
+            "user": admin,
         },
     )
 
@@ -140,9 +140,9 @@ def update_user(
             {
                 "request": request,
                 "action": "edit",
-                "user": user,
+                "form_user": user,
                 "error": "Cannot modify your own role",
-                "current_user": admin,
+                "user": admin,
             },
             status_code=400,
         )
@@ -153,9 +153,9 @@ def update_user(
             {
                 "request": request,
                 "action": "edit",
-                "user": user,
+                "form_user": user,
                 "error": "Invalid role",
-                "current_user": admin,
+                "user": admin,
             },
             status_code=400,
         )
