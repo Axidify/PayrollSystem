@@ -426,6 +426,8 @@ async def import_models_csv(
                     crypto_wallet=row['crypto_wallet'],
                 )
                 created_model = crud.create_model(db, model_data)
+                # Refresh to ensure we have the latest state from DB
+                db.refresh(created_model)
                 model_id = created_model.id
             else:
                 # Use existing model
@@ -441,12 +443,11 @@ async def import_models_csv(
                     notes=row['payout_data']['notes'],
                 )
                 db.add(payout)
+                # Commit payout immediately
+                db.commit()
             
             if not existing_model:
                 imported_count += 1
-        
-        # Commit all changes
-        db.commit()
         
         # Return redirect with success message
         message = f"Successfully imported {imported_count} model{'s' if imported_count != 1 else ''}"
