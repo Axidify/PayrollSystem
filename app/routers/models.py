@@ -3,10 +3,11 @@ from __future__ import annotations
 
 import csv
 import io
+from datetime import date
 from decimal import Decimal
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile, File
 from fastapi.responses import RedirectResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -163,6 +164,134 @@ def export_models_csv(
     }
 
     return StreamingResponse(iter([buffer.getvalue()]), media_type="text/csv", headers=headers)
+
+
+@router.post("/import")
+async def import_models_csv(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_session),
+    user: User = Depends(get_admin_user),
+):
+    """Import models from a CSV file."""
+    
+    if not file.filename or not file.filename.lower().endswith('.csv'):
+        raise HTTPException(status_code=400, detail="File must be a CSV file")
+    
+    try:
+        # Read and parse CSV
+        content = await file.read()
+        text_stream = io.StringIO(content.decode('utf-8'))
+        reader = csv.DictReader(text_stream)
+        
+        if not reader.fieldnames:
+            raise HTTPException(status_code=400, detail="CSV file is empty")
+        
+        # Normalize field names
+        required_fields = {'status', 'code', 'real_name', 'working_name', 'start_date', 
+                          'payment_method', 'payment_frequency', 'amount_monthly'}
+        field_names_lower = {f.lower(): f for f in reader.fieldnames}
+        
+        # Check for required fields
+        missing = required_fields - set(field_names_lower.keys())
+        if missing:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Missing required columns: {', '.join(sorted(missing))}"
+            )
+        
+        # Import models
+        imported_count = 0
+        errors = []
+        
+        for row_num, row in enumerate(reader, start=2):
+            try:
+                # Extract values (handle both lowercase and original case)
+                code = row.get('code') or row.get('Code')
+                status_val = row.get('status') or row.get('Status')
+                real_name = row.get('real_name') or row.get('Real Name')
+                working_name = row.get('working_name') or row.get('Working Name')
+                start_date_str = row.get('start_date') or row.get('Start Date')
+                payment_method = row.get('payment_method') or row.get('Payment Method')
+                payment_frequency = row.get('payment_frequency') or row.get('Payment Frequency')
+                amount_monthly_str = row.get('amount_monthly') or row.get('Amount Monthly')
+                crypto_wallet = row.get('crypto_wallet') or row.get('Crypto Wallet')
+                
+                # Validate required fields
+                if not all([code, status_val, real_name, working_name, start_date_str, 
+                           payment_method, payment_frequency, amount_monthly_str]):
+                    errors.append(f"Row {row_num}: Missing required field")
+                    continue
+                
+                # Normalize and validate
+                code = code.strip()
+                status_val = status_val.strip().title()
+                if status_val not in ['Active', 'Inactive']:
+                    errors.append(f"Row {row_num}: Invalid status '{status_val}'. Must be 'Active' or 'Inactive'")
+                    continue
+                
+                # Parse date
+                try:
+                    start_date_obj = date.fromisoformat(start_date_str.strip())
+                except ValueError:
+                    errors.append(f"Row {row_num}: Invalid date format '{start_date_str}'. Use YYYY-MM-DD")
+                    continue
+                
+                # Parse amount
+                try:
+                    amount = Decimal(amount_monthly_str.strip())
+                    if amount <= 0:
+                        errors.append(f"Row {row_num}: Amount must be > 0")
+                        continue
+                except (ValueError, TypeError):
+                    errors.append(f"Row {row_num}: Invalid amount '{amount_monthly_str}'")
+                    continue
+                
+                # Validate frequency
+                payment_frequency_val = payment_frequency.strip().lower()
+                if payment_frequency_val not in ['weekly', 'biweekly', 'monthly']:
+                    errors.append(f"Row {row_num}: Invalid frequency '{payment_frequency}'. Must be weekly, biweekly, or monthly")
+                    continue
+                
+                # Check if code already exists
+                existing = crud.get_model_by_code(db, code)
+                if existing:
+                    errors.append(f"Row {row_num}: Model code '{code}' already exists")
+                    continue
+                
+                # Create model
+                model_data = ModelCreate(
+                    status=status_val,
+                    code=code,
+                    real_name=real_name.strip(),
+                    working_name=working_name.strip(),
+                    start_date=start_date_obj,
+                    payment_method=payment_method.strip(),
+                    payment_frequency=payment_frequency_val,
+                    amount_monthly=amount,
+                    crypto_wallet=crypto_wallet.strip() if crypto_wallet else None,
+                )
+                
+                crud.create_model(db, model_data)
+                imported_count += 1
+            
+            except Exception as e:
+                errors.append(f"Row {row_num}: {str(e)}")
+        
+        # Prepare response message
+        if imported_count == 0 and errors:
+            raise HTTPException(status_code=400, detail=f"Import failed. Errors: {'; '.join(errors[:5])}")
+        
+        # Return redirect with success message
+        message = f"Successfully imported {imported_count} model{'s' if imported_count != 1 else ''}"
+        if errors:
+            message += f". {len(errors)} row(s) had errors"
+        
+        return RedirectResponse(url="/models?message=" + message, status_code=303)
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error processing file: {str(e)}")
 
 
 @router.get("/new")
