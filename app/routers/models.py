@@ -103,9 +103,14 @@ def export_models_csv(
     status: str | None = None,
     frequency: str | None = None,
     payment_method: str | None = None,
+    include_payments: str | None = None,
     db: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
+    """
+    Export models to CSV.
+    If include_payments=true, includes payment history (paid payouts) for each model.
+    """
     code_filter, status_filter, frequency_filter, method_filter = _normalize_filters(
         code, status, frequency, payment_method
     )
@@ -119,44 +124,137 @@ def export_models_csv(
     )
 
     totals_map = crud.total_paid_by_model(db, [model.id for model in models])
+    
+    # Check if user wants to include payment history
+    include_payment_history = include_payments and include_payments.lower() == "true"
 
     buffer = io.StringIO()
     writer = csv.writer(buffer)
-    writer.writerow(
-        [
-            "Code",
-            "Status",
-            "Real Name",
-            "Working Name",
-            "Start Date",
-            "Payment Method",
-            "Payment Frequency",
-            "Monthly Amount",
-            "Total Paid",
-        ]
-    )
-
-    for model in models:
-        start_date_value = model.start_date.strftime("%m/%d/%Y") if model.start_date else ""
-        total_paid = totals_map.get(model.id, Decimal("0"))
+    
+    # Header row for model information
+    if not include_payment_history:
+        # Simple model export
         writer.writerow(
             [
-                model.code,
-                model.status,
-                model.real_name,
-                model.working_name,
-                start_date_value,
-                model.payment_method,
-                model.payment_frequency,
-                f"{model.amount_monthly:.2f}",
-                f"{total_paid:.2f}",
+                "Code",
+                "Status",
+                "Real Name",
+                "Working Name",
+                "Start Date",
+                "Payment Method",
+                "Payment Frequency",
+                "Monthly Amount",
+                "Total Paid",
+                "Crypto Wallet",
             ]
         )
+
+        for model in models:
+            start_date_value = model.start_date.strftime("%m/%d/%Y") if model.start_date else ""
+            total_paid = totals_map.get(model.id, Decimal("0"))
+            writer.writerow(
+                [
+                    model.code,
+                    model.status,
+                    model.real_name,
+                    model.working_name,
+                    start_date_value,
+                    model.payment_method,
+                    model.payment_frequency,
+                    f"{model.amount_monthly:.2f}",
+                    f"{total_paid:.2f}",
+                    model.crypto_wallet or "",
+                ]
+            )
+    else:
+        # Extended export with payment history
+        writer.writerow(
+            [
+                "Code",
+                "Status",
+                "Real Name",
+                "Working Name",
+                "Start Date",
+                "Payment Method",
+                "Payment Frequency",
+                "Monthly Amount",
+                "Total Paid",
+                "Crypto Wallet",
+                "Pay Date",
+                "Payment Code",
+                "Payment Working Name",
+                "Payment Method (Actual)",
+                "Payment Frequency (Actual)",
+                "Payment Amount",
+                "Payment Status",
+                "Payment Notes",
+            ]
+        )
+
+        for model in models:
+            start_date_value = model.start_date.strftime("%m/%d/%Y") if model.start_date else ""
+            total_paid = totals_map.get(model.id, Decimal("0"))
+            
+            # Get paid payouts for this model
+            paid_payouts = crud.get_paid_payouts_for_model(db, model.id)
+            
+            if paid_payouts:
+                # Write one row per payment
+                for payout in paid_payouts:
+                    pay_date_value = payout.pay_date.strftime("%m/%d/%Y") if payout.pay_date else ""
+                    writer.writerow(
+                        [
+                            model.code,
+                            model.status,
+                            model.real_name,
+                            model.working_name,
+                            start_date_value,
+                            model.payment_method,
+                            model.payment_frequency,
+                            f"{model.amount_monthly:.2f}",
+                            f"{total_paid:.2f}",
+                            model.crypto_wallet or "",
+                            pay_date_value,
+                            payout.code,
+                            payout.working_name,
+                            payout.payment_method,
+                            payout.payment_frequency,
+                            f"{payout.amount:.2f}",
+                            payout.status,
+                            payout.notes or "",
+                        ]
+                    )
+            else:
+                # Write model row with empty payment fields if no payouts
+                writer.writerow(
+                    [
+                        model.code,
+                        model.status,
+                        model.real_name,
+                        model.working_name,
+                        start_date_value,
+                        model.payment_method,
+                        model.payment_frequency,
+                        f"{model.amount_monthly:.2f}",
+                        f"{total_paid:.2f}",
+                        model.crypto_wallet or "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                    ]
+                )
 
     buffer.seek(0)
     filename_parts = ["models_export"]
     if code_filter:
         filename_parts.append(code_filter.replace(" ", "_"))
+    if include_payment_history:
+        filename_parts.append("with_payments")
     filename = "_".join(filename_parts) + ".csv"
 
     headers = {
