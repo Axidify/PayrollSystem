@@ -245,7 +245,10 @@ async def import_models_csv(
         # Read and parse CSV
         content = await file.read()
         text_stream = io.StringIO(content.decode('utf-8'))
-        reader = csv.DictReader(text_stream)
+        # Try to detect delimiter - could be comma or tab
+        sample = content.decode('utf-8')[:1024]
+        dialect = csv.Sniffer().sniff(sample, delimiters=',\t')
+        reader = csv.DictReader(text_stream, dialect=dialect)
         
         if not reader.fieldnames:
             raise HTTPException(status_code=400, detail="CSV file is empty")
