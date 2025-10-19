@@ -8,116 +8,142 @@
     </div>
 </section>
 
-<section class="card" style="max-width: 820px;">
-    <form class="form" method="post">
-        <div class="form-row">
-            <label for="status">Status</label>
-            <select id="status" name="status" required>
-                {% set status_value = model.status if model else 'Active' %}
-                <option value="Active" {% if status_value == 'Active' %}selected{% endif %}>Active</option>
-                <option value="Inactive" {% if status_value == 'Inactive' %}selected{% endif %}>Inactive</option>
-            </select>
-        </div>
-        <div class="form-row">
-            <label for="code">Code</label>
-            <input id="code" name="code" type="text" required value="{{ model.code if model else '' }}" />
-        </div>
-        <div class="form-row">
-            <label for="real_name">Real Name</label>
-            <input id="real_name" name="real_name" type="text" required value="{{ model.real_name if model else '' }}" />
-        </div>
-        <div class="form-row">
-            <label for="working_name">Working Name</label>
-            <input id="working_name" name="working_name" type="text" required value="{{ model.working_name if model else '' }}" />
-        </div>
-        <div class="form-row">
-            <label for="start_date">Start Date</label>
-            <input id="start_date" name="start_date" type="date" required value="{{ model.start_date if model else '' }}" />
-        </div>
-        <div class="form-row">
-            <label for="payment_method">Payment Method</label>
-            <input id="payment_method" name="payment_method" type="text" required value="{{ model.payment_method if model else '' }}" />
-        </div>
-        <div class="form-row">
-            <label for="payment_frequency">Frequency</label>
-            {% set freq_value = model.payment_frequency if model else 'weekly' %}
-            <select id="payment_frequency" name="payment_frequency" required>
-                <option value="weekly" {% if freq_value == 'weekly' %}selected{% endif %}>Weekly</option>
-                <option value="biweekly" {% if freq_value == 'biweekly' %}selected{% endif %}>Biweekly</option>
-                <option value="monthly" {% if freq_value == 'monthly' %}selected{% endif %}>Monthly</option>
-            </select>
-        </div>
-        <div class="form-row">
-            <label for="amount_monthly">Monthly Amount (USD)</label>
-            <input id="amount_monthly" name="amount_monthly" type="number" step="0.01" min="0" required value="{{ '%.2f'|format(model.amount_monthly) if model else '' }}" />
-        </div>
-        <div class="form-row">
-            <label>Compensation Adjustments</label>
-            {% set adjustments = model.compensation_adjustments if model and model.compensation_adjustments else [] %}
-            <div class="adjustments-list" data-adjustments>
-                {% if adjustments %}
-                    {% for adjustment in adjustments %}
-                    <div class="adjustment-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 12px; margin-bottom: 12px; align-items: end;">
-                        <div>
-                            <div style="font-size: 0.8rem; font-weight: 600; margin-bottom: 4px;">Effective Date</div>
-                            <input name="adjustment_effective_dates" type="date" required value="{{ adjustment.effective_date.strftime('%Y-%m-%d') }}" />
-                        </div>
-                        <div>
-                            <div style="font-size: 0.8rem; font-weight: 600; margin-bottom: 4px;">Monthly Amount</div>
-                            <input name="adjustment_amounts" type="number" step="0.01" min="0.01" required value="{{ '%.2f'|format(adjustment.amount_monthly) }}" />
-                        </div>
-                        <div>
-                            <div style="font-size: 0.8rem; font-weight: 600; margin-bottom: 4px;">Notes (Optional)</div>
-                            <input name="adjustment_notes" type="text" value="{{ adjustment.notes or '' }}" />
-                        </div>
-                        <button type="button" class="button tertiary" data-remove-adjustment>Remove</button>
-                    </div>
-                    {% endfor %}
-                {% else %}
-                    <div class="adjustment-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 12px; margin-bottom: 12px; align-items: end;">
-                        <div>
-                            <div style="font-size: 0.8rem; font-weight: 600; margin-bottom: 4px;">Effective Date</div>
-                            <input name="adjustment_effective_dates" type="date" />
-                        </div>
-                        <div>
-                            <div style="font-size: 0.8rem; font-weight: 600; margin-bottom: 4px;">Monthly Amount</div>
-                            <input name="adjustment_amounts" type="number" step="0.01" min="0.01" />
-                        </div>
-                        <div>
-                            <div style="font-size: 0.8rem; font-weight: 600; margin-bottom: 4px;">Notes (Optional)</div>
-                            <input name="adjustment_notes" type="text" />
-                        </div>
-                        <button type="button" class="button tertiary" data-remove-adjustment>Remove</button>
-                    </div>
-                {% endif %}
+<section class="card card--form">
+    <form class="form form--wide" method="post">
+        <div class="form-grid two-column">
+            <div class="form-row">
+                <label for="status">Status</label>
+                <select id="status" name="status" required>
+                    {% set status_value = model.status if model else 'Active' %}
+                    <option value="Active" {% if status_value == 'Active' %}selected{% endif %}>Active</option>
+                    <option value="Inactive" {% if status_value == 'Inactive' %}selected{% endif %}>Inactive</option>
+                </select>
             </div>
-            <div style="display: flex; gap: 12px; align-items: center;">
-                <button type="button" class="button secondary" id="add-adjustment">Add Adjustment</button>
-                <p style="margin: 0; font-size: 0.85rem; color: #cbd5e1;">(Optional) Add raises that take effect after the model start date. Rows without a date and amount are ignored.</p>
+            <div class="form-row">
+                <label for="code">Code</label>
+                <input id="code" name="code" type="text" required value="{{ model.code if model else '' }}" />
+            </div>
+            <div class="form-row">
+                <label for="real_name">Real Name</label>
+                <input id="real_name" name="real_name" type="text" required value="{{ model.real_name if model else '' }}" />
+            </div>
+            <div class="form-row">
+                <label for="working_name">Working Name</label>
+                <input id="working_name" name="working_name" type="text" required value="{{ model.working_name if model else '' }}" />
+            </div>
+            <div class="form-row">
+                <label for="start_date">Start Date</label>
+                <input id="start_date" name="start_date" type="date" required value="{{ model.start_date if model else '' }}" />
+            </div>
+            <div class="form-row">
+                <label for="payment_method">Payment Method</label>
+                <input id="payment_method" name="payment_method" type="text" required value="{{ model.payment_method if model else '' }}" />
+            </div>
+            <div class="form-row">
+                <label for="payment_frequency">Frequency</label>
+                {% set freq_value = model.payment_frequency if model else 'weekly' %}
+                <select id="payment_frequency" name="payment_frequency" required>
+                    <option value="weekly" {% if freq_value == 'weekly' %}selected{% endif %}>Weekly</option>
+                    <option value="biweekly" {% if freq_value == 'biweekly' %}selected{% endif %}>Biweekly</option>
+                    <option value="monthly" {% if freq_value == 'monthly' %}selected{% endif %}>Monthly</option>
+                </select>
+            </div>
+            <div class="form-row">
+                <label for="amount_monthly">Monthly Amount (USD)</label>
+                <input id="amount_monthly" name="amount_monthly" type="number" step="0.01" min="0" required value="{{ '%.2f'|format(model.amount_monthly) if model else '' }}" />
             </div>
         </div>
+
+        {% set adjustments = model.compensation_adjustments if model and model.compensation_adjustments else [] %}
+        {% set adjustments_count = adjustments|length %}
+        {% set latest_adjustment = adjustments[-1] if adjustments_count else None %}
+
+        <details class="adjustments-panel" data-adjustments-panel {% if adjustments_count %}open{% endif %}>
+            <summary class="adjustments-summary">
+                <span class="adjustments-summary-title">Compensation Adjustments</span>
+                <span class="adjustments-summary-meta">
+                    <span class="adjustments-chip" data-adjustments-count>
+                        {% if adjustments_count %}
+                            {{ adjustments_count }} scheduled
+                        {% else %}
+                            None scheduled
+                        {% endif %}
+                    </span>
+                    <span class="adjustments-summary-text" data-adjustments-latest>
+                        {% if adjustments_count and latest_adjustment %}
+                            Latest {{ latest_adjustment.effective_date.strftime('%b %d, %Y') }} · ${{ '%.2f'|format(latest_adjustment.amount_monthly) }}
+                        {% endif %}
+                    </span>
+                </span>
+            </summary>
+            <div class="adjustments-body">
+                <p class="form-hint">Capture raises that take effect after the model start date. Leave blank to skip.</p>
+                <div class="adjustments-list" data-adjustments>
+                    {% if adjustments %}
+                        {% for adjustment in adjustments %}
+                        <div class="adjustment-row">
+                            <div class="adjustment-field">
+                                <span class="adjustment-label">Effective Date</span>
+                                <input name="adjustment_effective_dates" type="date" required value="{{ adjustment.effective_date.strftime('%Y-%m-%d') }}" />
+                            </div>
+                            <div class="adjustment-field">
+                                <span class="adjustment-label">Monthly Amount</span>
+                                <input name="adjustment_amounts" type="number" step="0.01" min="0.01" required value="{{ '%.2f'|format(adjustment.amount_monthly) }}" />
+                            </div>
+                            <div class="adjustment-field">
+                                <span class="adjustment-label">Notes (Optional)</span>
+                                <input name="adjustment_notes" type="text" value="{{ adjustment.notes or '' }}" />
+                            </div>
+                            <button type="button" class="button tertiary" data-remove-adjustment>Remove</button>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="adjustment-row">
+                            <div class="adjustment-field">
+                                <span class="adjustment-label">Effective Date</span>
+                                <input name="adjustment_effective_dates" type="date" />
+                            </div>
+                            <div class="adjustment-field">
+                                <span class="adjustment-label">Monthly Amount</span>
+                                <input name="adjustment_amounts" type="number" step="0.01" min="0.01" />
+                            </div>
+                            <div class="adjustment-field">
+                                <span class="adjustment-label">Notes (Optional)</span>
+                                <input name="adjustment_notes" type="text" />
+                            </div>
+                            <button type="button" class="button tertiary" data-remove-adjustment>Remove</button>
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="adjustments-toolbar">
+                    <button type="button" class="button secondary" id="add-adjustment">Add Adjustment</button>
+                    <p class="form-hint">Effective date must be on or after the model start date. Rows without both a date and amount are ignored.</p>
+                </div>
+            </div>
+        </details>
+
         <div class="form-row">
             <label for="crypto_wallet">Crypto Wallet Address (Optional)</label>
             <input id="crypto_wallet" name="crypto_wallet" type="text" value="{{ model.crypto_wallet if model else '' }}" placeholder="e.g., 0x742d35Cc6634C0532925a3b844Bc9e7595f42e" />
         </div>
-        <div class="form-actions">
+        <div class="form-actions form-actions--end">
             <button class="button" type="submit">Save</button>
             <a class="button secondary" href="/models">Cancel</a>
         </div>
     </form>
 </section>
 <template id="adjustment-row-template">
-    <div class="adjustment-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 12px; margin-bottom: 12px; align-items: end;">
-        <div>
-            <div style="font-size: 0.8rem; font-weight: 600; margin-bottom: 4px;">Effective Date</div>
+    <div class="adjustment-row">
+        <div class="adjustment-field">
+            <span class="adjustment-label">Effective Date</span>
             <input name="adjustment_effective_dates" type="date" required />
         </div>
-        <div>
-            <div style="font-size: 0.8rem; font-weight: 600; margin-bottom: 4px;">Monthly Amount</div>
+        <div class="adjustment-field">
+            <span class="adjustment-label">Monthly Amount</span>
             <input name="adjustment_amounts" type="number" step="0.01" min="0.01" required />
         </div>
-        <div>
-            <div style="font-size: 0.8rem; font-weight: 600; margin-bottom: 4px;">Notes (Optional)</div>
+        <div class="adjustment-field">
+            <span class="adjustment-label">Notes (Optional)</span>
             <input name="adjustment_notes" type="text" />
         </div>
         <button type="button" class="button tertiary" data-remove-adjustment>Remove</button>
@@ -125,12 +151,65 @@
 </template>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    const container = document.querySelector('[data-adjustments]');
+    const panel = document.querySelector('[data-adjustments-panel]');
+    const container = panel ? panel.querySelector('[data-adjustments]') : null;
     const addButton = document.getElementById('add-adjustment');
     const template = document.getElementById('adjustment-row-template');
-    if (!container || !addButton || !template) {
+    const countDisplay = panel ? panel.querySelector('[data-adjustments-count]') : null;
+    const latestDisplay = panel ? panel.querySelector('[data-adjustments-latest]') : null;
+
+    if (!panel || !container || !addButton || !template) {
         return;
     }
+
+    const formatDate = (value) => {
+        if (!value) {
+            return '';
+        }
+        const parts = value.split('-').map(Number);
+        if (parts.length !== 3 || parts.some((part) => Number.isNaN(part))) {
+            return '';
+        }
+        const [year, month, day] = parts;
+        const isoDate = new Date(Date.UTC(year, month - 1, day));
+        return isoDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    };
+
+    const updateSummary = () => {
+        if (!countDisplay) {
+            return;
+        }
+        const rows = Array.from(container.querySelectorAll('.adjustment-row'));
+        const validRows = rows
+            .map((row) => {
+                const dateInput = row.querySelector('input[name="adjustment_effective_dates"]');
+                const amountInput = row.querySelector('input[name="adjustment_amounts"]');
+                return {
+                    date: dateInput ? dateInput.value : '',
+                    amount: amountInput ? parseFloat(amountInput.value) : NaN,
+                };
+            })
+            .filter((entry) => entry.date && Number.isFinite(entry.amount));
+
+        if (!validRows.length) {
+            countDisplay.textContent = 'None scheduled';
+            if (latestDisplay) {
+                latestDisplay.textContent = '';
+            }
+            return;
+        }
+
+        validRows.sort((a, b) => a.date.localeCompare(b.date));
+        const latest = validRows[validRows.length - 1];
+        countDisplay.textContent = `${validRows.length} scheduled`;
+        if (latestDisplay) {
+            const formattedDate = formatDate(latest.date);
+            const formattedAmount = Number.isFinite(latest.amount) ? `$${latest.amount.toFixed(2)}` : '';
+            const details = [formattedDate, formattedAmount].filter(Boolean).join(' ');
+            latestDisplay.textContent = details ? `Latest ${details}` : '';
+        }
+    };
+
     const syncRemoveButtons = () => {
         const rows = container.querySelectorAll('.adjustment-row');
         rows.forEach((row) => {
@@ -139,12 +218,15 @@ document.addEventListener('DOMContentLoaded', function () {
                 removeButton.disabled = rows.length === 1;
             }
         });
+        updateSummary();
     };
+
     addButton.addEventListener('click', () => {
         const clone = template.content.firstElementChild.cloneNode(true);
         container.appendChild(clone);
         syncRemoveButtons();
     });
+
     container.addEventListener('click', (event) => {
         const trigger = event.target.closest('[data-remove-adjustment]');
         if (!trigger) {
@@ -157,6 +239,9 @@ document.addEventListener('DOMContentLoaded', function () {
         trigger.closest('.adjustment-row').remove();
         syncRemoveButtons();
     });
+
+    container.addEventListener('input', updateSummary);
+
     syncRemoveButtons();
 });
 </script>

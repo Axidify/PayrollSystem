@@ -11,106 +11,130 @@
     </div>
 </section>
 
-<section class="card" style="max-width: 820px;">
-    <h2>Model Information</h2>
-    
-    <div class="form-row" style="background: rgba(51, 65, 85, 0.3); padding: 12px; border-radius: 6px; margin-bottom: 16px;">
-        <label>Status</label>
-        <div style="padding: 8px 0; font-weight: 500;">
-            {% if model.status == 'Active' %}
-                <span class="tag active">Active</span>
-            {% else %}
-                <span class="tag inactive">Inactive</span>
-            {% endif %}
+<section class="card card--form">
+    <header class="card-heading">
+        <h2>Model Information</h2>
+        <p>Roster and payment configuration</p>
+    </header>
+    <div class="info-grid two-column">
+        <div class="info-field">
+            <span class="info-label">Status</span>
+            <span class="info-value">
+                {% if model.status == 'Active' %}
+                    <span class="status-chip status-chip--active">Active</span>
+                {% else %}
+                    <span class="status-chip status-chip--inactive">Inactive</span>
+                {% endif %}
+            </span>
+        </div>
+        <div class="info-field">
+            <span class="info-label">Code</span>
+            <span class="info-value">{{ model.code }}</span>
+        </div>
+        <div class="info-field">
+            <span class="info-label">Real Name</span>
+            <span class="info-value">{{ model.real_name }}</span>
+        </div>
+        <div class="info-field">
+            <span class="info-label">Working Name</span>
+            <span class="info-value">{{ model.working_name }}</span>
+        </div>
+        <div class="info-field">
+            <span class="info-label">Start Date</span>
+            <span class="info-value">{{ model.start_date.strftime('%m/%d/%Y') if model.start_date else '—' }}</span>
+        </div>
+        <div class="info-field">
+            <span class="info-label">Payment Method</span>
+            <span class="info-value">{{ model.payment_method }}</span>
+        </div>
+        <div class="info-field">
+            <span class="info-label">Payment Frequency</span>
+            <span class="info-value">{{ model.payment_frequency|title }}</span>
+        </div>
+        <div class="info-field">
+            <span class="info-label">Monthly Amount (USD)</span>
+            <span class="info-value">${{ '%.2f'|format(model.amount_monthly) }}</span>
+        </div>
+        <div class="info-field span-all">
+            <span class="info-label">Crypto Wallet Address</span>
+            <span class="info-value {{ 'info-value--muted' if not model.crypto_wallet }}">{{ model.crypto_wallet if model.crypto_wallet else 'Not provided' }}</span>
         </div>
     </div>
+</section>
 
-    <div class="form-row" style="background: rgba(51, 65, 85, 0.3); padding: 12px; border-radius: 6px; margin-bottom: 16px;">
-        <label>Code</label>
-        <div style="padding: 8px 0; font-weight: 500;">{{ model.code }}</div>
-    </div>
+{% set adjustments = model.compensation_adjustments or [] %}
+{% set adjustments_count = adjustments|length %}
+{% set latest_adjustment = adjustments[-1] if adjustments_count else None %}
 
-    <div class="form-row" style="background: rgba(51, 65, 85, 0.3); padding: 12px; border-radius: 6px; margin-bottom: 16px;">
-        <label>Real Name</label>
-        <div style="padding: 8px 0; font-weight: 500;">{{ model.real_name }}</div>
-    </div>
+<section class="card card--form">
+    <header class="card-heading">
+        <h2>Compensation Timeline</h2>
+    </header>
+    <details class="adjustments-panel" {% if adjustments_count %}open{% endif %}>
+        <summary class="adjustments-summary">
+            <span class="adjustments-summary-title">Scheduled Adjustments</span>
+            <span class="adjustments-summary-meta">
+                <span class="adjustments-chip">
+                    {% if adjustments_count %}
+                        {{ adjustments_count }} scheduled
+                    {% else %}
+                        None scheduled
+                    {% endif %}
+                </span>
+                <span class="adjustments-summary-text">
+                    {% if adjustments_count and latest_adjustment %}
+                        Latest {{ latest_adjustment.effective_date.strftime('%b %d, %Y') }} · ${{ '%.2f'|format(latest_adjustment.amount_monthly) }}
+                    {% endif %}
+                </span>
+            </span>
+        </summary>
+        <div class="adjustments-body">
+            {% if adjustments_count %}
+            <div class="data-table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Effective Date</th>
+                            <th>Monthly Amount</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for adjustment in adjustments %}
+                        <tr>
+                            <td>{{ adjustment.effective_date.strftime('%m/%d/%Y') }}</td>
+                            <td class="info-value">${{ '%.2f'|format(adjustment.amount_monthly) }}</td>
+                            <td class="info-value--muted">{{ adjustment.notes or '—' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="form-hint">No adjustment history captured yet. Add raises on the model edit screen.</p>
+            {% endif %}
+        </div>
+    </details>
+</section>
 
-    <div class="form-row" style="background: rgba(51, 65, 85, 0.3); padding: 12px; border-radius: 6px; margin-bottom: 16px;">
-        <label>Working Name</label>
-        <div style="padding: 8px 0; font-weight: 500;">{{ model.working_name }}</div>
-    </div>
-
-    <div class="form-row" style="background: rgba(51, 65, 85, 0.3); padding: 12px; border-radius: 6px; margin-bottom: 16px;">
-        <label>Start Date</label>
-        <div style="padding: 8px 0; font-weight: 500;">{{ model.start_date.strftime('%m/%d/%Y') if model.start_date else '—' }}</div>
-    </div>
-
-    <div class="form-row" style="background: rgba(51, 65, 85, 0.3); padding: 12px; border-radius: 6px; margin-bottom: 16px;">
-        <label>Payment Method</label>
-        <div style="padding: 8px 0; font-weight: 500;">{{ model.payment_method }}</div>
-    </div>
-
-    <div class="form-row" style="background: rgba(51, 65, 85, 0.3); padding: 12px; border-radius: 6px; margin-bottom: 16px;">
-        <label>Payment Frequency</label>
-        <div style="padding: 8px 0; font-weight: 500;">{{ model.payment_frequency|title }}</div>
-    </div>
-
-    <div class="form-row" style="background: rgba(51, 65, 85, 0.3); padding: 12px; border-radius: 6px; margin-bottom: 16px;">
-        <label>Monthly Amount (USD)</label>
-        <div style="padding: 8px 0; font-weight: 500;">${{ '%.2f'|format(model.amount_monthly) }}</div>
-    </div>
-
-    <div class="form-row" style="background: rgba(51, 65, 85, 0.3); padding: 12px; border-radius: 6px; margin-bottom: 16px;">
-        <label>Crypto Wallet Address</label>
-        <div style="padding: 8px 0; font-weight: 500;">{{ model.crypto_wallet if model.crypto_wallet else '—' }}</div>
+<section class="card card--form">
+    <header class="card-heading">
+        <h2>Payment Summary</h2>
+    </header>
+    <div class="info-grid two-column">
+        <div class="info-field">
+            <span class="info-label">Total Paid (USD)</span>
+            <span class="info-value">${{ '%.2f'|format(total_paid) }}</span>
+        </div>
+        <div class="info-field">
+            <span class="info-label">Created</span>
+            <span class="info-value">{{ model.created_at.strftime('%m/%d/%Y %I:%M %p') if model.created_at else '—' }}</span>
+        </div>
     </div>
 </section>
 
-<section class="card" style="max-width: 820px;">
-    <h2>Compensation Timeline</h2>
-    {% set adjustments = model.compensation_adjustments or [] %}
-    {% if adjustments %}
-    <div class="data-table-wrapper" style="margin-top: 12px;">
-        <table class="data-table" style="font-size: 0.95rem;">
-            <thead>
-                <tr>
-                    <th>Effective Date</th>
-                    <th>Monthly Amount</th>
-                    <th>Notes</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for adjustment in adjustments %}
-                <tr>
-                    <td>{{ adjustment.effective_date.strftime('%m/%d/%Y') }}</td>
-                    <td style="font-weight: 600;">${{ '%.2f'|format(adjustment.amount_monthly) }}</td>
-                    <td style="color: #cbd5e1; font-size: 0.9rem;">{{ adjustment.notes or '—' }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    {% else %}
-    <p style="color: #cbd5e1; font-size: 0.95rem; margin-top: 12px;">No adjustment history captured yet. Add raises on the model edit screen.</p>
-    {% endif %}
-</section>
-
-<section class="card" style="max-width: 820px;">
-    <h2>Payment Summary</h2>
-    
-    <div class="form-row" style="background: rgba(51, 65, 85, 0.3); padding: 12px; border-radius: 6px; margin-bottom: 16px;">
-        <label>Total Paid (USD)</label>
-        <div style="padding: 8px 0; font-weight: 500;">${{ '%.2f'|format(total_paid) }}</div>
-    </div>
-
-    <div class="form-row" style="background: rgba(51, 65, 85, 0.3); padding: 12px; border-radius: 6px; margin-bottom: 16px;">
-        <label>Created</label>
-        <div style="padding: 8px 0; font-weight: 500;">{{ model.created_at.strftime('%m/%d/%Y %I:%M %p') if model.created_at else '—' }}</div>
-    </div>
-</section>
-
-<section class="card" style="max-width: 820px;">
-    <div class="form-actions">
+<section class="card card--form">
+    <div class="card-actions card-actions--end card-actions--stack">
         {% if user.role == 'admin' %}
         <a class="button" href="/models/{{ model.id }}/edit">Edit Model</a>
         <button class="button secondary" type="button" onclick="if(confirm('Delete this model?')) { fetch('/models/{{ model.id }}/delete', { method: 'POST' }).then(() => window.location.href='/models'); }">Delete Model</button>
@@ -119,13 +143,14 @@
     </div>
 </section>
 
-<section class="card" style="max-width: 820px; margin-top: 24px;">
-    <h2>Payment History</h2>
-    <p style="color: #cbd5e1; font-size: 0.95rem; margin-bottom: 16px;">Payment records from scheduled payroll runs.</p>
-    
+<section class="card card--form table-card">
+    <header class="card-heading">
+        <h2>Payment History</h2>
+        <p>Payment records from scheduled payroll runs</p>
+    </header>
     {% if paid_payouts %}
     <div class="data-table-wrapper">
-        <table class="data-table" style="font-size: 0.95rem;">
+        <table class="data-table">
             <thead>
                 <tr>
                     <th>Pay Date</th>
@@ -146,25 +171,25 @@
                     <td>{{ payout.working_name }}</td>
                     <td>{{ payout.payment_method }}</td>
                     <td>{{ payout.payment_frequency|title }}</td>
-                    <td style="font-weight: 600;">${{ '%.2f'|format(payout.amount) }}</td>
+                    <td class="info-value">${{ '%.2f'|format(payout.amount) }}</td>
                     <td>
                         {% if payout.status == 'paid' %}
-                            <span class="tag active" style="background: rgba(34, 197, 94, 0.2); color: #4ade80;">Paid</span>
+                            <span class="status-chip status-chip--active">Paid</span>
                         {% elif payout.status == 'on_hold' %}
-                            <span class="tag" style="background: rgba(234, 179, 8, 0.2); color: #facc15;">On Hold</span>
+                            <span class="status-chip status-chip--warning">On Hold</span>
                         {% else %}
-                            <span class="tag" style="background: rgba(107, 114, 128, 0.2); color: #9ca3af;">Not Paid</span>
+                            <span class="status-chip status-chip--neutral">Not Paid</span>
                         {% endif %}
                     </td>
-                    <td style="color: #cbd5e1; font-size: 0.9rem;">{{ payout.notes or '—' }}</td>
+                    <td class="info-value--muted">{{ payout.notes or '—' }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
     {% else %}
-    <div style="color: #cbd5e1; padding: 16px; text-align: center; background: rgba(51, 65, 85, 0.2); border-radius: 6px;">
-        No paid payments recorded yet. View <a href="/schedules" style="color: #60a5fa; text-decoration: none; font-weight: 500;">Schedule Runs</a> to manage payments.
+    <div class="empty-state">
+        No paid payments recorded yet. View <a href="/schedules">Schedule Runs</a> to manage payments.
     </div>
     {% endif %}
 </section>
