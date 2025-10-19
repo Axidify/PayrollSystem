@@ -145,7 +145,6 @@ def export_models_csv(
             "Payment Method",
             "Payment Frequency",
             "Monthly Amount",
-            "Total Paid",
             "Crypto Wallet",
             "Pay Date",
             "Amount",
@@ -156,7 +155,6 @@ def export_models_csv(
 
     for model in models:
         start_date_value = model.start_date.strftime("%m/%d/%Y") if model.start_date else ""
-        total_paid = totals_map.get(model.id, Decimal("0"))
         
         # Get paid payouts for this model
         paid_payouts = crud.get_paid_payouts_for_model(db, model.id)
@@ -175,7 +173,6 @@ def export_models_csv(
                         model.payment_method,
                         model.payment_frequency,
                         f"{model.amount_monthly:.2f}",
-                        f"{total_paid:.2f}",
                         model.crypto_wallet or "",
                         pay_date_value,
                         f"{payout.amount:.2f}",
@@ -195,7 +192,6 @@ def export_models_csv(
                     model.payment_method,
                     model.payment_frequency,
                     f"{model.amount_monthly:.2f}",
-                    f"{total_paid:.2f}",
                     model.crypto_wallet or "",
                     "",
                     "",
