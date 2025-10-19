@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+from datetime import date, datetime
 from pathlib import Path
 from typing import Generator
 
@@ -71,11 +72,13 @@ def init_db() -> None:
         except:
             pass
     
-    ensure_schema_updates()
+        ensure_schema_updates()
 
 
 def ensure_schema_updates() -> None:
     """Ensure all required columns exist in the database tables."""
+    from app.models import Model, ModelCompensationAdjustment
+
     inspector = inspect(engine)
     
     # Remove is_active column from users table (migration from soft-delete to hard-delete)
@@ -154,4 +157,46 @@ def ensure_schema_updates() -> None:
                 print("[ensure_schema_updates] Successfully added security fields to users table")
     except Exception as e:
         print(f"[ensure_schema_updates] Error updating users table: {e}")
+
+        # Ensure compensation adjustments table exists and is populated from existing models
+        try:
+            tables = inspector.get_table_names()
+        except Exception as e:
+            print(f"[ensure_schema_updates] Error listing tables: {e}")
+            tables = []
+
+        try:
+            if "model_compensation_adjustments" not in tables:
+                print("[ensure_schema_updates] Creating model_compensation_adjustments table")
+                ModelCompensationAdjustment.__table__.create(bind=engine, checkfirst=True)
+        except Exception as e:
+            print(f"[ensure_schema_updates] Error creating model_compensation_adjustments table: {e}")
+
+        session = SessionLocal()
+        try:
+            for model in session.query(Model).all():
+                existing = (
+                    session.query(ModelCompensationAdjustment)
+                    .filter(ModelCompensationAdjustment.model_id == model.id)
+                    .first()
+                )
+                if existing:
+                    continue
+                effective_date = model.start_date or date.today()
+                adjustment = ModelCompensationAdjustment(
+                    model_id=model.id,
+                    effective_date=effective_date,
+                    amount_monthly=model.amount_monthly,
+                    notes="Seeded from existing model record",
+                )
+                session.add(adjustment)
+            session.commit()
+        except Exception as e:
+            print(f"[ensure_schema_updates] Error seeding compensation adjustments: {e}")
+            try:
+                session.rollback()
+            except Exception:
+                pass
+        finally:
+            session.close()
 

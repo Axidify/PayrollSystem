@@ -38,7 +38,7 @@ def get_failed_attempts_count(
     minutes: int = RATE_LIMIT_WINDOW_MINUTES,
 ) -> int:
     """Get count of failed login attempts in the last N minutes."""
-    cutoff_time = datetime.utcnow() - timedelta(minutes=minutes)
+    cutoff_time = datetime.now() - timedelta(minutes=minutes)
     
     stmt = select(LoginAttempt).where(
         LoginAttempt.username == username,
@@ -62,7 +62,7 @@ def is_account_locked(db: Session, username: str) -> tuple[bool, str | None]:
     
     # Check if account is permanently locked by admin
     if user.is_locked:
-        if user.locked_until and user.locked_until > datetime.utcnow():
+        if user.locked_until and user.locked_until > datetime.now():
             return True, f"Account is locked until {user.locked_until.strftime('%Y-%m-%d %H:%M:%S')}"
         else:
             # Auto-unlock if lockout period has passed
@@ -86,7 +86,7 @@ def lock_account(
     
     if user:
         user.is_locked = True
-        user.locked_until = datetime.utcnow() + timedelta(minutes=duration_minutes)
+        user.locked_until = datetime.now() + timedelta(minutes=duration_minutes)
         user.failed_login_count = 0  # Reset counter
         db.add(user)
         db.commit()
@@ -98,7 +98,7 @@ def increment_failed_login(db: Session, username: str) -> None:
     
     if user:
         user.failed_login_count += 1
-        user.last_failed_login = datetime.utcnow()
+        user.last_failed_login = datetime.now()
         db.add(user)
         db.commit()
         

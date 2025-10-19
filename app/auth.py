@@ -17,7 +17,7 @@ class User(Base):
     username: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[str] = mapped_column(String(50), default="user", nullable=False)  # "admin" or "user"
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(default=datetime.now, nullable=False)
     is_locked: Mapped[bool] = mapped_column(default=False, nullable=False)
     locked_until: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     failed_login_count: Mapped[int] = mapped_column(default=0, nullable=False)

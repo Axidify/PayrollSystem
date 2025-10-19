@@ -90,11 +90,27 @@ def main() -> int:
         else:
             print("[OK] Payout sheet processed without validation errors")
 
+        adjustment_activity = (
+            summary.adjustments_created
+            + summary.adjustments_updated
+            + len(summary.adjustment_errors)
+        )
+        if adjustment_activity:
+            if summary.adjustment_errors:
+                print("[WARN] Issues during compensation adjustments import:")
+                for message in summary.adjustment_errors:
+                    print(f"  - {message}")
+            else:
+                print("[OK] Compensation adjustments processed without validation errors")
+
         print()
         print("[SUMMARY] Import results:")
         print(f"  - Models created: {summary.models_created}")
         print(f"  - Models updated: {summary.models_updated}")
         print(f"  - Payouts created: {summary.payouts_created}")
+        if adjustment_activity:
+            print(f"  - Adjustments created: {summary.adjustments_created}")
+            print(f"  - Adjustments updated: {summary.adjustments_updated}")
         if summary.schedule_run_ids:
             if len(summary.schedule_run_ids) == 1:
                 print(f"  - Schedule run id: {summary.schedule_run_ids[0]}")

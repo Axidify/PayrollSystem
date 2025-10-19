@@ -4,7 +4,8 @@ from __future__ import annotations
 import csv
 import io
 from datetime import date
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
+from itertools import zip_longest
 from typing import Any
 from urllib.parse import urlencode
 
@@ -22,6 +23,8 @@ from app.schemas import ModelCreate, ModelUpdate
 from app.importers.excel_importer import ImportOptions, RunOptions, import_from_excel
 
 router = APIRouter(prefix="/models", tags=["Models"])
+
+_DECIMAL_PLACES = Decimal("0.01")
 
 
 def _normalize_filters(
@@ -99,6 +102,44 @@ def _build_model_list_context(
     context.setdefault("import_auto_runs", True)
     context.setdefault("import_update_existing", True)
     return context
+
+
+def _parse_adjustment_rows(
+    effective_dates: list[str],
+    amounts: list[str],
+    notes: list[str],
+    baseline_date: date,
+) -> list[tuple[date, Decimal, str | None]]:
+    rows: dict[date, tuple[date, Decimal, str | None]] = {}
+
+    for index, (date_value, amount_value, note_value) in enumerate(
+        zip_longest(effective_dates, amounts, notes, fillvalue="")
+    ):
+        if not date_value and not amount_value and not note_value:
+            continue
+        if not date_value or not amount_value:
+            raise HTTPException(status_code=400, detail=f"Adjustment row {index + 1} requires an effective date and amount.")
+        try:
+            effective_date = date.fromisoformat(str(date_value))
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=f"Invalid effective date for adjustment row {index + 1}.") from exc
+        if effective_date < baseline_date:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Adjustment row {index + 1} must be on or after the model start date.",
+            )
+        try:
+            amount = Decimal(str(amount_value))
+        except (InvalidOperation, ValueError) as exc:
+            raise HTTPException(status_code=400, detail=f"Invalid monthly amount for adjustment row {index + 1}.") from exc
+        if amount <= 0:
+            raise HTTPException(status_code=400, detail=f"Adjustment row {index + 1} must use an amount greater than zero.")
+        normalized_amount = amount.quantize(_DECIMAL_PLACES)
+        note_text = note_value.strip() if note_value else ""
+        rows[effective_date] = (effective_date, normalized_amount, note_text or None)
+
+    adjustments = sorted(rows.values(), key=lambda item: item[0])
+    return adjustments
 
 
 @router.get("/")
@@ -254,6 +295,9 @@ def create_model(
     payment_frequency: str = Form(...),
     amount_monthly: str = Form(...),
     crypto_wallet: str = Form(None),
+    adjustment_effective_dates: list[str] = Form([]),
+    adjustment_amounts: list[str] = Form([]),
+    adjustment_notes: list[str] = Form([]),
     db: Session = Depends(get_session),
     user: User = Depends(get_admin_user),
 ):
@@ -270,7 +314,18 @@ def create_model(
     )
     if crud.get_model_by_code(db, payload.code):
         raise HTTPException(status_code=400, detail="Model code already exists.")
-    crud.create_model(db, payload)
+    model = crud.create_model(db, payload)
+
+    adjustments = _parse_adjustment_rows(
+        adjustment_effective_dates,
+        adjustment_amounts,
+        adjustment_notes,
+        payload.start_date,
+    )
+    if adjustments:
+        for effective_date, amount, note_text in adjustments:
+            crud.create_compensation_adjustment(db, model, effective_date, amount, note_text)
+        db.commit()
     return RedirectResponse(url="/models", status_code=303)
 
 
@@ -328,6 +383,9 @@ def update_model(
     payment_frequency: str = Form(...),
     amount_monthly: str = Form(...),
     crypto_wallet: str = Form(None),
+    adjustment_effective_dates: list[str] = Form([]),
+    adjustment_amounts: list[str] = Form([]),
+    adjustment_notes: list[str] = Form([]),
     db: Session = Depends(get_session),
     user: User = Depends(get_admin_user),
 ):
@@ -351,7 +409,27 @@ def update_model(
     if existing and existing.id != model.id:
         raise HTTPException(status_code=400, detail="Another model already uses this code.")
 
-    crud.update_model(db, model, payload)
+    updated_model = crud.update_model(db, model, payload)
+
+    adjustments = _parse_adjustment_rows(
+        adjustment_effective_dates,
+        adjustment_amounts,
+        adjustment_notes,
+        payload.start_date,
+    )
+
+    existing_by_date = {adj.effective_date: adj for adj in updated_model.compensation_adjustments}
+
+    if adjustments:
+        keep_dates: set[date] = set()
+        for effective_date, amount, note_text in adjustments:
+            crud.create_compensation_adjustment(db, updated_model, effective_date, amount, note_text)
+            keep_dates.add(effective_date)
+        for effective_date, adjustment in existing_by_date.items():
+            if effective_date not in keep_dates and effective_date > payload.start_date:
+                db.delete(adjustment)
+        db.commit()
+
     return RedirectResponse(url="/models", status_code=303)
 
 
@@ -385,7 +463,6 @@ async def import_models_excel(
         contents = await excel_file.read()
         if not contents:
             raise ValueError("The uploaded file is empty.")
-
         filename = (excel_file.filename or "").lower()
         if not filename.endswith((".xlsx", ".xlsm", ".xls")):
             raise ValueError("Upload an Excel file with the .xlsx extension.")

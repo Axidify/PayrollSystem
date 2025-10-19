@@ -52,6 +52,51 @@
             <input id="amount_monthly" name="amount_monthly" type="number" step="0.01" min="0" required value="{{ '%.2f'|format(model.amount_monthly) if model else '' }}" />
         </div>
         <div class="form-row">
+            <label>Compensation Adjustments</label>
+            {% set adjustments = model.compensation_adjustments if model and model.compensation_adjustments else [] %}
+            <div class="adjustments-list" data-adjustments>
+                {% if adjustments %}
+                    {% for adjustment in adjustments %}
+                    <div class="adjustment-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 12px; margin-bottom: 12px; align-items: end;">
+                        <div>
+                            <div style="font-size: 0.8rem; font-weight: 600; margin-bottom: 4px;">Effective Date</div>
+                            <input name="adjustment_effective_dates" type="date" required value="{{ adjustment.effective_date.strftime('%Y-%m-%d') }}" />
+                        </div>
+                        <div>
+                            <div style="font-size: 0.8rem; font-weight: 600; margin-bottom: 4px;">Monthly Amount</div>
+                            <input name="adjustment_amounts" type="number" step="0.01" min="0.01" required value="{{ '%.2f'|format(adjustment.amount_monthly) }}" />
+                        </div>
+                        <div>
+                            <div style="font-size: 0.8rem; font-weight: 600; margin-bottom: 4px;">Notes (Optional)</div>
+                            <input name="adjustment_notes" type="text" value="{{ adjustment.notes or '' }}" />
+                        </div>
+                        <button type="button" class="button tertiary" data-remove-adjustment>Remove</button>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="adjustment-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 12px; margin-bottom: 12px; align-items: end;">
+                        <div>
+                            <div style="font-size: 0.8rem; font-weight: 600; margin-bottom: 4px;">Effective Date</div>
+                            <input name="adjustment_effective_dates" type="date" />
+                        </div>
+                        <div>
+                            <div style="font-size: 0.8rem; font-weight: 600; margin-bottom: 4px;">Monthly Amount</div>
+                            <input name="adjustment_amounts" type="number" step="0.01" min="0.01" />
+                        </div>
+                        <div>
+                            <div style="font-size: 0.8rem; font-weight: 600; margin-bottom: 4px;">Notes (Optional)</div>
+                            <input name="adjustment_notes" type="text" />
+                        </div>
+                        <button type="button" class="button tertiary" data-remove-adjustment>Remove</button>
+                    </div>
+                {% endif %}
+            </div>
+            <div style="display: flex; gap: 12px; align-items: center;">
+                <button type="button" class="button secondary" id="add-adjustment">Add Adjustment</button>
+                <p style="margin: 0; font-size: 0.85rem; color: #cbd5e1;">(Optional) Add raises that take effect after the model start date. Rows without a date and amount are ignored.</p>
+            </div>
+        </div>
+        <div class="form-row">
             <label for="crypto_wallet">Crypto Wallet Address (Optional)</label>
             <input id="crypto_wallet" name="crypto_wallet" type="text" value="{{ model.crypto_wallet if model else '' }}" placeholder="e.g., 0x742d35Cc6634C0532925a3b844Bc9e7595f42e" />
         </div>
@@ -61,4 +106,58 @@
         </div>
     </form>
 </section>
+<template id="adjustment-row-template">
+    <div class="adjustment-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 12px; margin-bottom: 12px; align-items: end;">
+        <div>
+            <div style="font-size: 0.8rem; font-weight: 600; margin-bottom: 4px;">Effective Date</div>
+            <input name="adjustment_effective_dates" type="date" required />
+        </div>
+        <div>
+            <div style="font-size: 0.8rem; font-weight: 600; margin-bottom: 4px;">Monthly Amount</div>
+            <input name="adjustment_amounts" type="number" step="0.01" min="0.01" required />
+        </div>
+        <div>
+            <div style="font-size: 0.8rem; font-weight: 600; margin-bottom: 4px;">Notes (Optional)</div>
+            <input name="adjustment_notes" type="text" />
+        </div>
+        <button type="button" class="button tertiary" data-remove-adjustment>Remove</button>
+    </div>
+</template>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const container = document.querySelector('[data-adjustments]');
+    const addButton = document.getElementById('add-adjustment');
+    const template = document.getElementById('adjustment-row-template');
+    if (!container || !addButton || !template) {
+        return;
+    }
+    const syncRemoveButtons = () => {
+        const rows = container.querySelectorAll('.adjustment-row');
+        rows.forEach((row) => {
+            const removeButton = row.querySelector('[data-remove-adjustment]');
+            if (removeButton) {
+                removeButton.disabled = rows.length === 1;
+            }
+        });
+    };
+    addButton.addEventListener('click', () => {
+        const clone = template.content.firstElementChild.cloneNode(true);
+        container.appendChild(clone);
+        syncRemoveButtons();
+    });
+    container.addEventListener('click', (event) => {
+        const trigger = event.target.closest('[data-remove-adjustment]');
+        if (!trigger) {
+            return;
+        }
+        const rows = container.querySelectorAll('.adjustment-row');
+        if (rows.length <= 1) {
+            return;
+        }
+        trigger.closest('.adjustment-row').remove();
+        syncRemoveButtons();
+    });
+    syncRemoveButtons();
+});
+</script>
 {% endblock %}

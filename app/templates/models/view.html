@@ -67,6 +67,35 @@
 </section>
 
 <section class="card" style="max-width: 820px;">
+    <h2>Compensation Timeline</h2>
+    {% set adjustments = model.compensation_adjustments or [] %}
+    {% if adjustments %}
+    <div class="data-table-wrapper" style="margin-top: 12px;">
+        <table class="data-table" style="font-size: 0.95rem;">
+            <thead>
+                <tr>
+                    <th>Effective Date</th>
+                    <th>Monthly Amount</th>
+                    <th>Notes</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for adjustment in adjustments %}
+                <tr>
+                    <td>{{ adjustment.effective_date.strftime('%m/%d/%Y') }}</td>
+                    <td style="font-weight: 600;">${{ '%.2f'|format(adjustment.amount_monthly) }}</td>
+                    <td style="color: #cbd5e1; font-size: 0.9rem;">{{ adjustment.notes or '—' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p style="color: #cbd5e1; font-size: 0.95rem; margin-top: 12px;">No adjustment history captured yet. Add raises on the model edit screen.</p>
+    {% endif %}
+</section>
+
+<section class="card" style="max-width: 820px;">
     <h2>Payment Summary</h2>
     
     <div class="form-row" style="background: rgba(51, 65, 85, 0.3); padding: 12px; border-radius: 6px; margin-bottom: 16px;">

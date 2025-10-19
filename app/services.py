@@ -1,6 +1,7 @@
 """Application service layer."""
 from __future__ import annotations
 
+import calendar
 import json
 from datetime import date
 from decimal import Decimal
@@ -79,7 +80,10 @@ class PayrollService:
             )
         
         models = crud.list_models(self.db)
-        records = [self._to_record(index, model) for index, model in enumerate(models, start=1)]
+        records = [
+            self._to_record(index, model, target_year, target_month)
+            for index, model in enumerate(models, start=1)
+        ]
 
         schedule_df, summary = build_pay_schedule(records, target_year, target_month, currency)
         models_df = build_models_table(records, currency)
@@ -127,7 +131,14 @@ class PayrollService:
 
         return schedule_df, models_df, validation_df, summary, run.id
 
-    def _to_record(self, position: int, model: Model) -> ModelRecord:
+    def _to_record(self, position: int, model: Model, target_year: int, target_month: int) -> ModelRecord:
+        last_day = calendar.monthrange(target_year, target_month)[1]
+        target_date = date(target_year, target_month, last_day)
+        amount_for_month = crud.get_effective_compensation_amount(self.db, model, target_date)
+        adjustments = [
+            (adjustment.effective_date, Decimal(str(adjustment.amount_monthly)))
+            for adjustment in model.compensation_adjustments
+        ]
         record = ModelRecord(
             row_number=position + 1,
             status=model.status,
@@ -137,7 +148,8 @@ class PayrollService:
             start_date=model.start_date,
             payment_method=model.payment_method,
             payment_frequency=model.payment_frequency.lower(),
-            amount_monthly=Decimal(model.amount_monthly),
+            amount_monthly=amount_for_month,
+            compensation_adjustments=adjustments,
         )
         for message in validate_row(record):
             record.add_message(message.level, message.text)

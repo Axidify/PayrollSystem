@@ -33,7 +33,7 @@ else:
 # Step 2: Lock the account manually
 print("\n2. Locking the account...")
 test_user.is_locked = True
-test_user.locked_until = datetime.utcnow() + timedelta(minutes=15)
+test_user.locked_until = datetime.now() + timedelta(minutes=15)
 test_user.failed_login_count = 5
 db.add(test_user)
 db.commit()

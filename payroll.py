@@ -58,6 +58,7 @@ class ModelRecord:
     payment_method: str
     payment_frequency: str
     amount_monthly: Optional[Decimal]
+    compensation_adjustments: List[tuple[date, Decimal]] = field(default_factory=list)
     validation_messages: List[ValidationMessage] = field(default_factory=list)
 
     @property
@@ -298,6 +299,18 @@ def is_eligible_for_date(record: ModelRecord, pay_date: date) -> bool:
     return record.start_date <= pay_date
 
 
+def resolve_monthly_amount(record: ModelRecord, pay_date: date) -> Optional[Decimal]:
+    """Return the monthly amount that should apply on a specific pay date."""
+
+    if record.compensation_adjustments:
+        applicable = [amount for effective, amount in record.compensation_adjustments if effective <= pay_date]
+        if applicable:
+            return applicable[-1]
+        first = record.compensation_adjustments[0][1]
+        return first
+    return record.amount_monthly
+
+
 def build_pay_schedule(
     records: Iterable[ModelRecord],
     year: int,
@@ -319,13 +332,16 @@ def build_pay_schedule(
         if not plan:
             continue
 
-        allocations, rounding_adjusted = allocate_amounts(record.amount_monthly, record.payment_frequency)
+        plan_length = len(plan)
         carryover = Decimal("0")
         skipped_due_to_start = False
 
         for position, plan_index in enumerate(plan):
             pay_date = pay_dates[plan_index]
-            base_amount = allocations[position]
+            monthly_amount = resolve_monthly_amount(record, pay_date)
+            if monthly_amount is None or monthly_amount <= Decimal("0"):
+                continue
+            base_amount = (monthly_amount / plan_length).quantize(MONEY_QUANT, rounding=ROUND_HALF_UP)
             if not is_eligible_for_date(record, pay_date):
                 carryover += base_amount
                 skipped_due_to_start = True
@@ -339,8 +355,6 @@ def build_pay_schedule(
                 skipped_due_to_start = False
             if payout_amount != base_amount:
                 notes.append("Includes deferred payouts")
-            if rounding_adjusted and position == len(plan) - 1:
-                notes.append("Adjusted for rounding")
 
             rows.append(
                 {

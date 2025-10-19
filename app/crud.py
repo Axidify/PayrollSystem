@@ -11,7 +11,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.payroll import ModelRecord, ValidationMessage
-from app.models import Model, Payout, ScheduleRun, ValidationIssue
+from app.models import Model, ModelCompensationAdjustment, Payout, ScheduleRun, ValidationIssue
 from app.schemas import ModelCreate, ModelUpdate
 
 
@@ -53,6 +53,25 @@ def get_model_by_code(db: Session, code: str) -> Model | None:
 def create_model(db: Session, payload: ModelCreate) -> Model:
     model = Model(**payload.dict())
     db.add(model)
+    db.flush()
+
+    effective_date = model.start_date or date.today()
+    existing_adjustment = (
+        db.query(ModelCompensationAdjustment)
+        .filter(
+            ModelCompensationAdjustment.model_id == model.id,
+            ModelCompensationAdjustment.effective_date == effective_date,
+        )
+        .first()
+    )
+    if not existing_adjustment:
+        create_compensation_adjustment(
+            db,
+            model,
+            effective_date=effective_date,
+            amount_monthly=Decimal(model.amount_monthly),
+            notes="Initial compensation",
+        )
     db.commit()
     db.refresh(model)
     return model
@@ -61,7 +80,7 @@ def create_model(db: Session, payload: ModelCreate) -> Model:
 def update_model(db: Session, model: Model, payload: ModelUpdate) -> Model:
     for key, value in payload.dict().items():
         setattr(model, key, value)
-    model.updated_at = datetime.utcnow()
+    model.updated_at = datetime.now()
     db.add(model)
     db.commit()
     db.refresh(model)
@@ -71,6 +90,57 @@ def update_model(db: Session, model: Model, payload: ModelUpdate) -> Model:
 def delete_model(db: Session, model: Model) -> None:
     db.delete(model)
     db.commit()
+
+
+def get_effective_compensation_amount(db: Session, model: Model, target_date: date) -> Decimal:
+    adjustment = (
+        db.query(ModelCompensationAdjustment)
+        .filter(
+            ModelCompensationAdjustment.model_id == model.id,
+            ModelCompensationAdjustment.effective_date <= target_date,
+        )
+        .order_by(ModelCompensationAdjustment.effective_date.desc())
+        .first()
+    )
+    if adjustment:
+        return Decimal(adjustment.amount_monthly)
+    return Decimal(model.amount_monthly)
+
+
+def create_compensation_adjustment(
+    db: Session,
+    model: Model,
+    effective_date: date,
+    amount_monthly: Decimal,
+    notes: str | None = None,
+) -> ModelCompensationAdjustment:
+    adjustment = (
+        db.query(ModelCompensationAdjustment)
+        .filter(
+            ModelCompensationAdjustment.model_id == model.id,
+            ModelCompensationAdjustment.effective_date == effective_date,
+        )
+        .first()
+    )
+    if adjustment:
+        adjustment.amount_monthly = amount_monthly
+        adjustment.notes = notes
+    else:
+        adjustment = ModelCompensationAdjustment(
+            model_id=model.id,
+            effective_date=effective_date,
+            amount_monthly=amount_monthly,
+            notes=notes,
+        )
+        db.add(adjustment)
+
+    if effective_date <= date.today():
+        model.amount_monthly = amount_monthly
+        model.updated_at = datetime.now()
+        db.add(model)
+
+    db.flush()
+    return adjustment
 
 
 def clear_schedule_data(db: Session, schedule_run: ScheduleRun) -> None:

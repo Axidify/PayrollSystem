@@ -12,11 +12,13 @@ import pandas as pd
 from dateutil import parser as date_parser
 from sqlalchemy.orm import Session
 
+from app import crud
 from app.models import (
     FREQUENCY_ENUM,
     PAYOUT_STATUS_ENUM,
     STATUS_ENUM,
     Model,
+    ModelCompensationAdjustment,
     Payout,
     ScheduleRun,
     ValidationIssue,
@@ -53,6 +55,22 @@ PAYOUT_COLUMNS: dict[str, dict[str, Any]] = {
     "notes": {"aliases": ["notes", "note", "notes & actions", "actions"], "required": False},
 }
 
+ADJUSTMENT_COLUMNS: dict[str, dict[str, Any]] = {
+    "code": {"aliases": ["code", "model code"], "required": True},
+    "effective_date": {"aliases": ["effective date", "effective_date"], "required": True},
+    "amount_monthly": {
+        "aliases": [
+            "monthly amount",
+            "amount monthly",
+            "monthly pay",
+            "amount",
+            "amount_monthly",
+        ],
+        "required": True,
+    },
+    "notes": {"aliases": ["notes", "note", "comments"], "required": False},
+}
+
 DATE_FORMATS: tuple[str, ...] = ("%m/%d/%Y", "%Y-%m-%d", "%m-%d-%Y")
 
 
@@ -72,6 +90,7 @@ class ImportOptions:
     model_sheet: str = "Models"
     payout_sheet: str = "Payouts"
     update_existing: bool = False
+    adjustments_sheet: str | None = "CompensationAdjustments"
 
 
 @dataclass
@@ -79,20 +98,26 @@ class ImportSummary:
     models_created: int = 0
     models_updated: int = 0
     payouts_created: int = 0
+    adjustments_created: int = 0
+    adjustments_updated: int = 0
     schedule_run_id: int | None = None
     schedule_run_ids: list[int] = field(default_factory=list)
     model_errors: list[str] = field(default_factory=list)
     payout_errors: list[str] = field(default_factory=list)
+    adjustment_errors: list[str] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
         return {
             "models_created": self.models_created,
             "models_updated": self.models_updated,
             "payouts_created": self.payouts_created,
+            "adjustments_created": self.adjustments_created,
+            "adjustments_updated": self.adjustments_updated,
             "schedule_run_id": self.schedule_run_id,
             "schedule_run_ids": self.schedule_run_ids,
             "model_errors": self.model_errors,
             "payout_errors": self.payout_errors,
+            "adjustment_errors": self.adjustment_errors,
         }
 
 
@@ -308,6 +333,65 @@ def import_models(df: pd.DataFrame, session: Session, update_existing: bool) -> 
     return created, updated, errors
 
 
+def import_compensation_adjustments(
+    df: pd.DataFrame, session: Session
+) -> tuple[int, int, list[str]]:
+    created = 0
+    updated = 0
+    errors: list[str] = []
+    normalized = normalize_columns(df, ADJUSTMENT_COLUMNS, "compensation adjustment")
+    records = normalized.dropna(how="all")
+    models_by_code = {m.code.lower(): m for m in session.query(Model).all()}
+
+    for idx, row in records.iterrows():
+        code_raw = row.get("code")
+        if pd.isna(code_raw):
+            errors.append(f"Row {idx + 2}: model code is missing")
+            continue
+        code = str(code_raw).strip()
+        if not code:
+            errors.append(f"Row {idx + 2}: model code is empty")
+            continue
+        model = models_by_code.get(code.lower())
+        if not model:
+            errors.append(f"Row {idx + 2}: model '{code}' not found; import models first")
+            continue
+        try:
+            effective_date = parse_date_value(row.get("effective_date"), "effective date")
+            amount = parse_decimal_value(row.get("amount_monthly"), "monthly amount")
+            notes = clean_string(row.get("notes"))
+        except ValueError as exc:
+            errors.append(f"Row {idx + 2}: {exc}")
+            continue
+
+        existing = (
+            session.query(ModelCompensationAdjustment)
+            .filter(
+                ModelCompensationAdjustment.model_id == model.id,
+                ModelCompensationAdjustment.effective_date == effective_date,
+            )
+            .first()
+        )
+        if existing:
+            if existing.amount_monthly != amount or existing.notes != notes:
+                existing.amount_monthly = amount
+                existing.notes = notes
+                session.add(existing)
+                updated += 1
+        else:
+            crud.create_compensation_adjustment(
+                session,
+                model,
+                effective_date=effective_date,
+                amount_monthly=amount,
+                notes=notes,
+            )
+            created += 1
+
+    session.flush()
+    return created, updated, errors
+
+
 def ensure_schedule_run(session: Session, options: RunOptions) -> ScheduleRun:
     if options.schedule_run_id:
         run = session.get(ScheduleRun, options.schedule_run_id)
@@ -447,6 +531,21 @@ def import_from_excel(
     summary.models_created = created_models
     summary.models_updated = updated_models
     summary.model_errors = model_errors
+
+    adjustment_df: pd.DataFrame | None = None
+    if import_options.adjustments_sheet:
+        try:
+            adjustment_df = load_sheet(workbook_bytes, import_options.adjustments_sheet)
+        except ValueError:
+            adjustment_df = None
+    if adjustment_df is not None:
+        created_adjustments, updated_adjustments, adjustment_errors = import_compensation_adjustments(
+            adjustment_df,
+            session,
+        )
+        summary.adjustments_created = created_adjustments
+        summary.adjustments_updated = updated_adjustments
+        summary.adjustment_errors = adjustment_errors
 
     if run_options.auto_generate_runs:
         grouped_frames, grouping_errors = group_payout_rows_by_month(payout_df)

@@ -97,7 +97,7 @@ def test_auto_unlock():
     # Lock the account manually
     print("\nManually locking account...")
     user.is_locked = True
-    user.locked_until = datetime.utcnow() - timedelta(seconds=1)  # Expired lockout
+    user.locked_until = datetime.now() - timedelta(seconds=1)  # Expired lockout
     db.add(user)
     db.commit()
     print("  ✓ Account locked with expired timeout")
