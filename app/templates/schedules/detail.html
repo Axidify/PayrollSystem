@@ -114,13 +114,13 @@
                 <th style="width: 30px;">
                     <input type="checkbox" id="select-all" onchange="toggleSelectAll(this)">
                 </th>
-                <th>Pay Date</th>
-                <th>Code</th>
-                <th>Working Name</th>
-                <th>Method</th>
-                <th>Frequency</th>
-                <th>Amount</th>
-                <th>Status</th>
+                <th onclick="sortTable(1)" style="cursor: pointer; user-select: none;">Pay Date ▼</th>
+                <th onclick="sortTable(2)" style="cursor: pointer; user-select: none;">Code ▼</th>
+                <th onclick="sortTable(3)" style="cursor: pointer; user-select: none;">Working Name ▼</th>
+                <th onclick="sortTable(4)" style="cursor: pointer; user-select: none;">Method ▼</th>
+                <th onclick="sortTable(5)" style="cursor: pointer; user-select: none;">Frequency ▼</th>
+                <th onclick="sortTable(6)" style="cursor: pointer; user-select: none;">Amount ▼</th>
+                <th onclick="sortTable(7)" style="cursor: pointer; user-select: none;">Status ▼</th>
                 <th>Notes &amp; Actions</th>
             </tr>
         </thead>
@@ -232,6 +232,62 @@ function cancelBulkUpdate() {
     document.querySelectorAll('.payout-checkbox').forEach(cb => cb.checked = false);
     document.getElementById('select-all').checked = false;
     updateBulkSection();
+}
+
+let sortDirection = {};
+
+function sortTable(columnIndex) {
+    const table = document.querySelector('.data-table');
+    const tbody = table.querySelector('tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    
+    // Remove empty state row if present
+    const emptyStateRow = rows.find(r => r.querySelector('.empty-state'));
+    if (emptyStateRow) rows.splice(rows.indexOf(emptyStateRow), 1);
+    
+    if (rows.length === 0) return;
+    
+    // Determine sort direction
+    const isAscending = sortDirection[columnIndex] !== true;
+    sortDirection[columnIndex] = !isAscending;
+    
+    // Sort rows
+    rows.sort((rowA, rowB) => {
+        const cellA = rowA.cells[columnIndex].textContent.trim();
+        const cellB = rowB.cells[columnIndex].textContent.trim();
+        
+        // Try numeric sort first (for Amount, Pay Date)
+        const numA = parseFloat(cellA.replace(/[^\d.]/g, ''));
+        const numB = parseFloat(cellB.replace(/[^\d.]/g, ''));
+        
+        if (!isNaN(numA) && !isNaN(numB)) {
+            return isAscending ? numA - numB : numB - numA;
+        }
+        
+        // Date sort (MM/DD/YYYY format)
+        if (columnIndex === 1) {
+            const dateA = new Date(cellA.split('/').reverse().join('-'));
+            const dateB = new Date(cellB.split('/').reverse().join('-'));
+            return isAscending ? dateA - dateB : dateB - dateA;
+        }
+        
+        // String sort
+        return isAscending 
+            ? cellA.localeCompare(cellB) 
+            : cellB.localeCompare(cellA);
+    });
+    
+    // Reappend sorted rows
+    rows.forEach(row => tbody.appendChild(row));
+    
+    // Update header indicators
+    document.querySelectorAll('.data-table th').forEach((th, idx) => {
+        if (idx === columnIndex) {
+            th.textContent = th.textContent.replace(' ▼', '').replace(' ▲', '') + (isAscending ? ' ▼' : ' ▲');
+        } else if (idx > 0 && idx < 9) {
+            th.textContent = th.textContent.replace(' ▼', '').replace(' ▲', '') + ' ▼';
+        }
+    });
 }
 </script>
 
