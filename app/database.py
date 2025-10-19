@@ -75,8 +75,27 @@ def init_db() -> None:
 
 
 def ensure_schema_updates() -> None:
+    """Ensure all required columns exist in the database tables."""
     inspector = inspect(engine)
-    existing_columns = {column["name"] for column in inspector.get_columns("payouts")}
-    if "status" not in existing_columns:
-        with engine.begin() as connection:
-            connection.execute(text("ALTER TABLE payouts ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'not_paid'"))
+    
+    # Ensure users table has role column
+    try:
+        users_columns = {column["name"] for column in inspector.get_columns("users")}
+        if "role" not in users_columns:
+            print("[ensure_schema_updates] Adding role column to users table")
+            with engine.begin() as connection:
+                connection.execute(text("ALTER TABLE users ADD COLUMN role VARCHAR(50) NOT NULL DEFAULT 'user'"))
+                print("[ensure_schema_updates] Successfully added role column to users table")
+    except Exception as e:
+        print(f"[ensure_schema_updates] Error updating users table: {e}")
+    
+    # Ensure payouts table has status column
+    try:
+        payouts_columns = {column["name"] for column in inspector.get_columns("payouts")}
+        if "status" not in payouts_columns:
+            print("[ensure_schema_updates] Adding status column to payouts table")
+            with engine.begin() as connection:
+                connection.execute(text("ALTER TABLE payouts ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'not_paid'"))
+                print("[ensure_schema_updates] Successfully added status column to payouts table")
+    except Exception as e:
+        print(f"[ensure_schema_updates] Error updating payouts table: {e}")
