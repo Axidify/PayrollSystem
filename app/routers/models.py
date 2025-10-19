@@ -207,6 +207,27 @@ def create_model(
     return RedirectResponse(url="/models", status_code=303)
 
 
+@router.get("/{model_id}")
+def view_model(model_id: int, request: Request, db: Session = Depends(get_session), user: User = Depends(get_current_user)):
+    """View model details in read-only mode."""
+    model = crud.get_model(db, model_id)
+    if not model:
+        raise HTTPException(status_code=404, detail="Model not found")
+    
+    # Get total paid amount for this model
+    total_paid = crud.total_paid_by_model(db, [model.id]).get(model.id, Decimal("0"))
+    
+    return templates.TemplateResponse(
+        "models/view.html",
+        {
+            "request": request,
+            "user": user,
+            "model": model,
+            "total_paid": total_paid,
+        },
+    )
+
+
 @router.get("/{model_id}/edit")
 def edit_model_form(model_id: int, request: Request, db: Session = Depends(get_session), user: User = Depends(get_admin_user)):
     model = crud.get_model(db, model_id)

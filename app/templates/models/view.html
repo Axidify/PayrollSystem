@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}{{ model.working_name }} · Model Details · Payroll Scheduler{% endblock %}
+{% block content %}
+<section class="page-header">
+    <div>
+        <h1 class="page-title">{{ model.working_name }}</h1>
+        <p>View-only model details</p>
+    </div>
+    <div>
+        <a class="button secondary" href="/models">Back to Roster</a>
+    </div>
+</section>
+
+<section class="card" style="max-width: 820px;">
+    <h2>Model Information</h2>
+    
+    <div class="form-row" style="background: rgba(51, 65, 85, 0.3); padding: 12px; border-radius: 6px; margin-bottom: 16px;">
+        <label>Status</label>
+        <div style="padding: 8px 0; font-weight: 500;">
+            {% if model.status == 'Active' %}
+                <span class="tag active">Active</span>
+            {% else %}
+                <span class="tag inactive">Inactive</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="form-row" style="background: rgba(51, 65, 85, 0.3); padding: 12px; border-radius: 6px; margin-bottom: 16px;">
+        <label>Code</label>
+        <div style="padding: 8px 0; font-weight: 500;">{{ model.code }}</div>
+    </div>
+
+    <div class="form-row" style="background: rgba(51, 65, 85, 0.3); padding: 12px; border-radius: 6px; margin-bottom: 16px;">
+        <label>Real Name</label>
+        <div style="padding: 8px 0; font-weight: 500;">{{ model.real_name }}</div>
+    </div>
+
+    <div class="form-row" style="background: rgba(51, 65, 85, 0.3); padding: 12px; border-radius: 6px; margin-bottom: 16px;">
+        <label>Working Name</label>
+        <div style="padding: 8px 0; font-weight: 500;">{{ model.working_name }}</div>
+    </div>
+
+    <div class="form-row" style="background: rgba(51, 65, 85, 0.3); padding: 12px; border-radius: 6px; margin-bottom: 16px;">
+        <label>Start Date</label>
+        <div style="padding: 8px 0; font-weight: 500;">{{ model.start_date.strftime('%m/%d/%Y') if model.start_date else '—' }}</div>
+    </div>
+
+    <div class="form-row" style="background: rgba(51, 65, 85, 0.3); padding: 12px; border-radius: 6px; margin-bottom: 16px;">
+        <label>Payment Method</label>
+        <div style="padding: 8px 0; font-weight: 500;">{{ model.payment_method }}</div>
+    </div>
+
+    <div class="form-row" style="background: rgba(51, 65, 85, 0.3); padding: 12px; border-radius: 6px; margin-bottom: 16px;">
+        <label>Payment Frequency</label>
+        <div style="padding: 8px 0; font-weight: 500;">{{ model.payment_frequency|title }}</div>
+    </div>
+
+    <div class="form-row" style="background: rgba(51, 65, 85, 0.3); padding: 12px; border-radius: 6px; margin-bottom: 16px;">
+        <label>Monthly Amount (USD)</label>
+        <div style="padding: 8px 0; font-weight: 500;">${{ '%.2f'|format(model.amount_monthly) }}</div>
+    </div>
+</section>
+
+<section class="card" style="max-width: 820px;">
+    <h2>Payment Summary</h2>
+    
+    <div class="form-row" style="background: rgba(51, 65, 85, 0.3); padding: 12px; border-radius: 6px; margin-bottom: 16px;">
+        <label>Total Paid (USD)</label>
+        <div style="padding: 8px 0; font-weight: 500;">${{ '%.2f'|format(total_paid) }}</div>
+    </div>
+
+    <div class="form-row" style="background: rgba(51, 65, 85, 0.3); padding: 12px; border-radius: 6px; margin-bottom: 16px;">
+        <label>Created</label>
+        <div style="padding: 8px 0; font-weight: 500;">{{ model.created_at.strftime('%m/%d/%Y %I:%M %p') if model.created_at else '—' }}</div>
+    </div>
+</section>
+
+<section class="card" style="max-width: 820px;">
+    <div class="form-actions">
+        {% if user.role == 'admin' %}
+        <a class="button" href="/models/{{ model.id }}/edit">Edit Model</a>
+        <form action="/models/{{ model.id }}/delete" method="post" onsubmit="return confirm('Delete this model?');" style="display: inline;">
+            <button class="button secondary" type="submit">Delete Model</button>
+        </form>
+        {% endif %}
+        <a class="button secondary" href="/models">Back to Roster</a>
+    </div>
+</section>
+{% endblock %}
