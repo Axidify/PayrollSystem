@@ -304,8 +304,9 @@ section {
 }
 
 .actions {
-    display: inline-flex;
+    display: flex;
     gap: 8px;
+    align-items: center;
 }
 
 @media (max-width: 768px) {
