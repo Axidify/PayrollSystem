@@ -1,0 +1,11 @@
+schedule_run_id,code,working_name,payment_method,payment_frequency,amount,status,pay_date,notes
+1,MODEL001,Alice A.,ACH,monthly,5000.00,paid,2025-10-15,October 2025 payroll
+1,MODEL002,Bob B.,Wire Transfer,biweekly,2250.00,paid,2025-10-01,First half October
+1,MODEL002,Bob B.,Wire Transfer,biweekly,2250.00,paid,2025-10-15,Second half October
+1,MODEL003,Carol C.,Crypto,weekly,1750.00,paid,2025-10-06,Week 1 - on chain
+1,MODEL003,Carol C.,Crypto,weekly,1750.00,paid,2025-10-13,Week 2 - on chain
+1,MODEL003,Carol C.,Crypto,weekly,1750.00,paid,2025-10-20,Week 3 - on chain
+1,MODEL003,Carol C.,Crypto,weekly,1750.00,paid,2025-10-27,Week 4 - on chain
+1,MODEL004,David D.,Check,monthly,3500.00,paid,2025-10-10,Mailed on this date
+1,MODEL005,Eve E.,ACH,biweekly,3000.00,on_hold,2025-10-15,Waiting for approval
+1,MODEL006,Frank F.,Wire Transfer,monthly,4200.00,not_paid,2025-10-15,Pending banking info

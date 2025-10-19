@@ -1,0 +1,9 @@
+status,code,real_name,working_name,start_date,payment_method,payment_frequency,amount_monthly,crypto_wallet
+Active,MODEL001,Alice Anderson,Alice A.,2024-01-01,ACH,monthly,5000.00,
+Active,MODEL002,Bob Brown,Bob B.,2024-03-15,Wire Transfer,biweekly,4500.00,
+Active,MODEL003,Carol Chen,Carol C.,2024-06-01,Crypto,weekly,7000.00,0x742d35Cc6634C0532925a3b844Bc7e7595f1234
+Active,MODEL004,David Davis,David D.,2024-06-15,Check,monthly,3500.00,
+Active,MODEL005,Eve Evans,Eve E.,2025-01-01,ACH,biweekly,3000.00,
+Active,MODEL006,Frank Franklin,Frank F.,2025-02-01,Wire Transfer,monthly,4200.00,
+Inactive,MODEL007,Grace Green,Grace G.,2023-12-01,ACH,monthly,4000.00,
+Inactive,MODEL008,Henry Harris,Henry H.,2024-09-01,Check,biweekly,2500.00,
