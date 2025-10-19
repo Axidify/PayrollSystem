@@ -7,7 +7,6 @@ from datetime import date
 from decimal import Decimal
 from urllib.parse import urlencode
 
-from dateutil import parser as date_parser
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile, File
 from fastapi.responses import RedirectResponse, StreamingResponse
 from sqlalchemy.orm import Session
@@ -349,8 +348,8 @@ def view_model(model_id: int, request: Request, db: Session = Depends(get_sessio
     # Get total paid amount for this model (from scheduled payouts)
     total_paid = crud.total_paid_by_model(db, [model.id]).get(model.id, Decimal("0"))
     
-    # Get payment history
-    payments = crud.list_payments_for_model(db, model_id)
+    # Get paid payouts (unified source of truth for payment history)
+    paid_payouts = crud.get_paid_payouts_for_model(db, model_id)
     
     return templates.TemplateResponse(
         "models/view.html",
@@ -359,7 +358,7 @@ def view_model(model_id: int, request: Request, db: Session = Depends(get_sessio
             "user": user,
             "model": model,
             "total_paid": total_paid,
-            "payments": payments,
+            "paid_payouts": paid_payouts,
         },
     )
 
@@ -420,129 +419,6 @@ def update_model(
     return RedirectResponse(url="/models", status_code=303)
 
 
-@router.post("/{model_id}/payments/import")
-async def import_payment_history(
-    model_id: int,
-    file: UploadFile = File(...),
-    db: Session = Depends(get_session),
-    user: User = Depends(get_admin_user),
-):
-    """Import payment history from CSV file."""
-    
-    model = crud.get_model(db, model_id)
-    if not model:
-        raise HTTPException(status_code=404, detail="Model not found")
-    
-    if not file.filename or not file.filename.lower().endswith('.csv'):
-        raise HTTPException(status_code=400, detail="File must be a CSV file")
-    
-    try:
-        # Read and parse CSV
-        content = await file.read()
-        text_stream = io.StringIO(content.decode('utf-8'))
-        reader = csv.DictReader(text_stream)
-        
-        if not reader.fieldnames:
-            raise HTTPException(status_code=400, detail="CSV file is empty")
-        
-        # Required fields
-        required_fields = {'payment_date', 'payment_to', 'amount'}
-        field_names_lower = {f.lower(): f for f in reader.fieldnames}
-        
-        # Check for required fields
-        missing = required_fields - set(field_names_lower.keys())
-        if missing:
-            raise HTTPException(
-                status_code=400, 
-                detail=f"Missing required columns: {', '.join(sorted(missing))}"
-            )
-        
-        # Import payments
-        imported_count = 0
-        errors = []
-        
-        for row_num, row in enumerate(reader, start=2):
-            try:
-                # Extract values
-                payment_date_str = row.get('payment_date') or row.get('Payment Date')
-                payment_to = row.get('payment_to') or row.get('Payment to')
-                amount_str = row.get('amount') or row.get('Amount')
-                notes = row.get('notes') or row.get('Notes')
-                
-                # Validate required fields
-                if not all([payment_date_str, payment_to, amount_str]):
-                    errors.append(f"Row {row_num}: Missing required field")
-                    continue
-                
-                # Parse date
-                try:
-                    payment_date_obj = date.fromisoformat(payment_date_str.strip())
-                except ValueError:
-                    # Try parsing common formats
-                    try:
-                        from dateutil import parser as date_parser
-                        payment_date_obj = date_parser.parse(payment_date_str).date()
-                    except:
-                        errors.append(f"Row {row_num}: Invalid date format '{payment_date_str}'. Use YYYY-MM-DD or MM/DD/YYYY")
-                        continue
-                
-                # Parse amount
-                try:
-                    amount_str_clean = amount_str.strip().replace('$', '').replace(',', '')
-                    amount = Decimal(amount_str_clean)
-                    if amount <= 0:
-                        errors.append(f"Row {row_num}: Amount must be > 0")
-                        continue
-                except (ValueError, TypeError):
-                    errors.append(f"Row {row_num}: Invalid amount '{amount_str}'")
-                    continue
-                
-                # Create payment
-                crud.create_payment(
-                    db,
-                    model_id=model_id,
-                    payment_date=payment_date_obj,
-                    payment_to=payment_to.strip(),
-                    amount=amount,
-                    notes=notes.strip() if notes else None,
-                )
-                imported_count += 1
-            
-            except Exception as e:
-                errors.append(f"Row {row_num}: {str(e)}")
-        
-        # Prepare response message
-        if imported_count == 0 and errors:
-            raise HTTPException(status_code=400, detail=f"Import failed. Errors: {'; '.join(errors[:5])}")
-        
-        # Return redirect with success
-        return RedirectResponse(url=f"/models/{model_id}", status_code=303)
-    
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error processing file: {str(e)}")
-
-
-@router.post("/{model_id}/payments/{payment_id}/delete")
-def delete_payment(
-    model_id: int,
-    payment_id: int,
-    db: Session = Depends(get_session),
-    user: User = Depends(get_admin_user),
-):
-    """Delete a payment record."""
-    
-    model = crud.get_model(db, model_id)
-    if not model:
-        raise HTTPException(status_code=404, detail="Model not found")
-    
-    success = crud.delete_payment(db, payment_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="Payment not found")
-    
-    return RedirectResponse(url=f"/models/{model_id}", status_code=303)
-
 
 @router.post("/{model_id}/delete")
 def delete_model(model_id: int, db: Session = Depends(get_session), user: User = Depends(get_admin_user)):
@@ -551,3 +427,4 @@ def delete_model(model_id: int, db: Session = Depends(get_session), user: User =
         raise HTTPException(status_code=404, detail="Model not found")
     crud.delete_model(db, model)
     return RedirectResponse(url="/models", status_code=303)
+
