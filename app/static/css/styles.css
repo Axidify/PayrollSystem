@@ -254,6 +254,7 @@ section {
     border-collapse: collapse;
     margin-top: 16px;
     table-layout: auto;
+    border: 1px solid rgba(148, 163, 184, 0.15);
 }
 
 @media (max-width: 768px) {
@@ -271,6 +272,7 @@ section {
     text-align: left;
     word-wrap: break-word;
     overflow-wrap: break-word;
+    vertical-align: middle;
 }
 
 @media (max-width: 640px) {
