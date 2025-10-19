@@ -2,12 +2,23 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Payroll Scheduler{% endblock %}</title>
     <link rel="stylesheet" href="/static/css/styles.css">
 </head>
 <body>
 <div class="layout">
-    <aside class="sidebar">
+    <!-- Mobile hamburger menu button -->
+    <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Toggle menu">
+        <span></span>
+        <span></span>
+        <span></span>
+    </button>
+    
+    <!-- Mobile menu overlay -->
+    <div class="mobile-menu-overlay" id="mobileMenuOverlay"></div>
+    
+    <aside class="sidebar" id="sidebar">
         <div class="brand">PAYROLL DESK</div>
         <nav class="nav-links">
             {% set path = request.url.path %}
@@ -28,5 +39,35 @@
         {% block content %}{% endblock %}
     </main>
 </div>
+
+<script>
+    // Mobile menu toggle functionality
+    const menuToggle = document.getElementById('mobileMenuToggle');
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('mobileMenuOverlay');
+    
+    function closeMenu() {
+        sidebar.classList.remove('active');
+        overlay.classList.remove('active');
+        menuToggle.classList.remove('active');
+    }
+    
+    function toggleMenu() {
+        sidebar.classList.toggle('active');
+        overlay.classList.toggle('active');
+        menuToggle.classList.toggle('active');
+    }
+    
+    // Toggle menu on button click
+    menuToggle.addEventListener('click', toggleMenu);
+    
+    // Close menu on overlay click
+    overlay.addEventListener('click', closeMenu);
+    
+    // Close menu when clicking on a nav link
+    document.querySelectorAll('.nav-link').forEach(link => {
+        link.addEventListener('click', closeMenu);
+    });
+</script>
 </body>
 </html>

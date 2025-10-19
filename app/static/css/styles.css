@@ -4,6 +4,7 @@ body {
     background-color: #0f172a;
     color: #f8fafc;
     box-sizing: border-box;
+    overflow-x: hidden;
 }
 
 * {
@@ -14,10 +15,16 @@ a {
     color: inherit;
 }
 
+section {
+    width: 100%;
+    max-width: 100%;
+}
+
 .layout {
     display: grid;
     grid-template-columns: 1fr;
     min-height: 100vh;
+    width: 100%;
 }
 
 .sidebar {
@@ -34,6 +41,23 @@ a {
     overflow-y: auto;
     z-index: 100;
 }
+
+@media (max-width: 768px) {
+    .sidebar {
+        width: 200px;
+        padding: 24px 16px;
+        gap: 24px;
+    }
+}
+
+@media (max-width: 480px) {
+    .sidebar {
+        width: 200px;
+        padding: 24px 16px;
+        gap: 24px;
+    }
+}
+
 
 .brand {
     font-size: 1.4rem;
@@ -65,6 +89,21 @@ a {
     padding: 32px;
     min-height: 100vh;
     background: linear-gradient(160deg, rgba(15, 23, 42, 0.8), rgba(30, 64, 175, 0.35));
+    overflow-x: hidden;
+}
+
+@media (max-width: 768px) {
+    .content {
+        margin-left: 0;
+        padding: 20px;
+    }
+}
+
+@media (max-width: 480px) {
+    .content {
+        margin-left: 0;
+        padding: 16px;
+    }
 }
 
 .page-header {
@@ -76,9 +115,37 @@ a {
     margin-bottom: 24px;
 }
 
+@media (max-width: 640px) {
+    .page-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+    
+    .page-header > div:last-child {
+        width: 100%;
+    }
+    
+    .page-header .button {
+        width: 100%;
+    }
+}
+
 .page-title {
     font-size: 2rem;
     margin: 0;
+}
+
+@media (max-width: 768px) {
+    .page-title {
+        font-size: 1.5rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .page-title {
+        font-size: 1.25rem;
+    }
 }
 
 .button {
@@ -95,6 +162,15 @@ a {
     cursor: pointer;
     font-weight: 600;
     transition: background 0.2s ease;
+    font-size: 0.95rem;
+}
+
+@media (max-width: 640px) {
+    .button {
+        width: 100%;
+        padding: 12px 16px;
+        font-size: 1rem;
+    }
 }
 
 .button.secondary {
@@ -113,11 +189,31 @@ a {
 .card-grid {
     display: grid;
     gap: 24px;
+    width: 100%;
 }
 
 @media (min-width: 960px) {
     .card-grid.columns-3 {
         grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 959px) {
+    .card-grid.columns-3 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 640px) {
+    .card-grid,
+    .card-grid.columns-3 {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 480px) {
+    .card-grid {
+        gap: 16px;
     }
 }
 
@@ -127,6 +223,21 @@ a {
     padding: 24px;
     box-shadow: 0 20px 60px rgba(15, 23, 42, 0.35);
     border: 1px solid rgba(148, 163, 184, 0.08);
+    overflow: hidden;
+}
+
+@media (max-width: 768px) {
+    .card {
+        padding: 18px;
+        border-radius: 12px;
+    }
+}
+
+@media (max-width: 480px) {
+    .card {
+        padding: 16px;
+        border-radius: 10px;
+    }
 }
 
 .card h2 {
@@ -134,14 +245,27 @@ a {
     font-size: 1.2rem;
 }
 
+.card > form {
+    width: 100%;
+}
+
 .data-table {
     width: 100%;
     border-collapse: collapse;
     margin-top: 16px;
+    table-layout: auto;
 }
 
-.data-table thead {
-    background: rgba(37, 99, 235, 0.15);
+@media (max-width: 768px) {
+    .data-table {
+        font-size: 0.9rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .data-table {
+        font-size: 0.8rem;
+    }
 }
 
 .data-table th,
@@ -149,6 +273,16 @@ a {
     padding: 12px;
     border-bottom: 1px solid rgba(148, 163, 184, 0.15);
     text-align: left;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+@media (max-width: 640px) {
+    .data-table th,
+    .data-table td {
+        padding: 8px;
+        font-size: 0.85rem;
+    }
 }
 
 .data-table tbody tr:hover {
@@ -178,6 +312,24 @@ a {
     gap: 8px;
 }
 
+@media (max-width: 768px) {
+    .actions {
+        gap: 6px;
+    }
+    
+    .actions .link-button {
+        font-size: 0.9rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .actions {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+}
+
 .actions form {
     display: inline;
 }
@@ -191,6 +343,7 @@ a {
     padding: 0;
     font-size: 1rem;
     font-family: inherit;
+    white-space: nowrap;
 }
 
 .link-button:hover {
@@ -203,9 +356,28 @@ a {
     max-width: 720px;
 }
 
+@media (max-width: 640px) {
+    .form {
+        max-width: 100%;
+        gap: 12px;
+    }
+}
+
 .form-row {
     display: grid;
     gap: 8px;
+}
+
+@media (max-width: 640px) {
+    .form-row {
+        gap: 6px;
+    }
+    
+    .form-row input,
+    .form-row select,
+    .form-row textarea {
+        font-size: 16px;
+    }
 }
 
 .form-row label {
@@ -234,11 +406,36 @@ a {
     gap: 12px;
 }
 
+@media (max-width: 640px) {
+    .form-actions {
+        gap: 8px;
+        flex-direction: column;
+    }
+    
+    .form-actions .button {
+        width: 100%;
+    }
+}
+
 .filter-bar {
     display: grid;
     gap: 18px;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     align-items: end;
+}
+
+@media (max-width: 768px) {
+    .filter-bar {
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 12px;
+    }
+}
+
+@media (max-width: 480px) {
+    .filter-bar {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
 }
 
 .filter-group {
@@ -267,6 +464,19 @@ a {
     display: flex;
     gap: 12px;
     flex-wrap: wrap;
+}
+
+@media (max-width: 640px) {
+    .filter-actions {
+        gap: 8px;
+    }
+    
+    .filter-actions .button {
+        flex: 1;
+        min-width: 100px;
+        padding: 10px 12px;
+        font-size: 0.85rem;
+    }
 }
 
 .metrics {
@@ -364,6 +574,33 @@ a {
     }
 }
 
+@media (max-width: 768px) {
+    .sidebar {
+        width: 200px;
+    }
+
+    .content {
+        margin-left: 200px;
+        padding: 20px;
+    }
+}
+
+@media (max-width: 480px) {
+    .sidebar {
+        left: -200px;
+        width: 200px;
+    }
+
+    .content {
+        margin-left: 0;
+        padding: 16px;
+    }
+    
+    .brand {
+        font-size: 1.2rem;
+    }
+}
+
 .status-badge {
     display: inline-flex;
     align-items: center;
@@ -392,3 +629,87 @@ a {
     color: #f87171;
     border-color: rgba(248, 113, 113, 0.45);
 }
+
+/* Mobile hamburger menu */
+.mobile-menu-toggle {
+    display: none;
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 101;
+    flex-direction: column;
+    justify-content: space-around;
+    width: 50px;
+    height: 50px;
+    background: #2563eb;
+    border: none;
+    cursor: pointer;
+    border-radius: 8px;
+    padding: 8px;
+}
+
+.mobile-menu-toggle span {
+    width: 100%;
+    height: 3px;
+    background: #f8fafc;
+    border-radius: 2px;
+    transition: all 0.3s ease;
+}
+
+.mobile-menu-toggle.active span:nth-child(1) {
+    transform: rotate(45deg) translate(12px, 12px);
+}
+
+.mobile-menu-toggle.active span:nth-child(2) {
+    opacity: 0;
+}
+
+.mobile-menu-toggle.active span:nth-child(3) {
+    transform: rotate(-45deg) translate(8px, -8px);
+}
+
+.mobile-menu-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 99;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+}
+
+.mobile-menu-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+@media (max-width: 480px) {
+    .mobile-menu-toggle {
+        display: flex;
+    }
+    
+    .mobile-menu-overlay {
+        display: block;
+    }
+    
+    .sidebar {
+        left: -200px;
+        width: 200px;
+        z-index: 100;
+        transition: left 0.3s ease;
+    }
+    
+    .sidebar.active {
+        left: 0;
+    }
+    
+    .content {
+        margin-left: 0;
+        padding: 70px 16px 16px 16px;
+    }
+}
+
