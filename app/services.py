@@ -48,6 +48,16 @@ class PayrollService:
         include_inactive: bool,
         output_dir: Path,
     ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, dict, int]:
+        # Check if a payroll run already exists for this month/year
+        existing_runs = crud.list_schedule_runs(
+            self.db, target_year=target_year, target_month=target_month
+        )
+        
+        # If a run exists, delete it so we can replace it with the updated one
+        if existing_runs:
+            for existing_run in existing_runs:
+                crud.delete_schedule_run(self.db, existing_run)
+        
         models = crud.list_models(self.db)
         records = [self._to_record(index, model) for index, model in enumerate(models, start=1)]
 
