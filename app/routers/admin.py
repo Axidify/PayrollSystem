@@ -57,8 +57,8 @@ def create_user(
     admin: User = Depends(get_admin_user),
 ):
     """Create a new user (admin only)."""
-    # Check if username already exists
-    existing = db.query(User).filter(User.username == username).first()
+    # Check if username already exists (only for active users)
+    existing = db.query(User).filter(User.username == username, User.is_active == True).first()
     if existing:
         return templates.TemplateResponse(
             "admin/user_form.html",
