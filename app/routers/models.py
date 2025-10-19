@@ -11,9 +11,11 @@ from fastapi.responses import RedirectResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
 from app import crud
+from app.auth import User
 from app.database import get_session
 from app.dependencies import templates
 from app.models import FREQUENCY_ENUM, STATUS_ENUM
+from app.routers.auth import get_current_user
 from app.schemas import ModelCreate, ModelUpdate
 
 router = APIRouter(prefix="/models", tags=["Models"])
@@ -40,6 +42,7 @@ def list_models(
     frequency: str | None = None,
     payment_method: str | None = None,
     db: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
 ):
     code_filter, status_filter, frequency_filter, method_filter = _normalize_filters(
         code, status, frequency, payment_method
@@ -99,6 +102,7 @@ def export_models_csv(
     frequency: str | None = None,
     payment_method: str | None = None,
     db: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
 ):
     code_filter, status_filter, frequency_filter, method_filter = _normalize_filters(
         code, status, frequency, payment_method
@@ -161,7 +165,7 @@ def export_models_csv(
 
 
 @router.get("/new")
-def new_model_form(request: Request):
+def new_model_form(request: Request, user: User = Depends(get_current_user)):
     return templates.TemplateResponse(
         "models/form.html",
         {
@@ -183,6 +187,7 @@ def create_model(
     payment_frequency: str = Form(...),
     amount_monthly: str = Form(...),
     db: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
 ):
     payload = ModelCreate(
         status=status,
@@ -201,7 +206,7 @@ def create_model(
 
 
 @router.get("/{model_id}/edit")
-def edit_model_form(model_id: int, request: Request, db: Session = Depends(get_session)):
+def edit_model_form(model_id: int, request: Request, db: Session = Depends(get_session), user: User = Depends(get_current_user)):
     model = crud.get_model(db, model_id)
     if not model:
         raise HTTPException(status_code=404, detail="Model not found")
@@ -228,6 +233,7 @@ def update_model(
     payment_frequency: str = Form(...),
     amount_monthly: str = Form(...),
     db: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
 ):
     model = crud.get_model(db, model_id)
     if not model:
@@ -253,7 +259,7 @@ def update_model(
 
 
 @router.post("/{model_id}/delete")
-def delete_model(model_id: int, db: Session = Depends(get_session)):
+def delete_model(model_id: int, db: Session = Depends(get_session), user: User = Depends(get_current_user)):
     model = crud.get_model(db, model_id)
     if not model:
         raise HTTPException(status_code=404, detail="Model not found")

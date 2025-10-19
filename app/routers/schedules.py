@@ -11,9 +11,11 @@ from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from app import crud
+from app.auth import User
 from app.database import get_session
 from app.dependencies import templates
 from app.models import PAYOUT_STATUS_ENUM
+from app.routers.auth import get_current_user
 from app.services import PayrollService
 
 router = APIRouter(prefix="/schedules", tags=["Schedules"])
@@ -26,6 +28,7 @@ def list_runs(
     request: Request,
     month: str | None = None,
     db: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
 ):
     normalized_month = month.strip() if month else ""
     year_filter: int | None = None
@@ -58,7 +61,7 @@ def list_runs(
 
 
 @router.get("/new")
-def new_schedule_form(request: Request):
+def new_schedule_form(request: Request, user: User = Depends(get_current_user)):
     today = date.today()
     default_month = f"{today.year:04d}-{today.month:02d}"
     return templates.TemplateResponse(
@@ -80,6 +83,7 @@ def run_schedule(
     include_inactive: str | None = Form(None),
     output_dir: str = Form(str(DEFAULT_EXPORT_DIR)),
     db: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
 ):
     try:
         year_str, month_str = month.split("-")
@@ -115,6 +119,7 @@ def view_schedule(
     status: str | None = None,
     pay_date: str | None = None,
     db: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
 ):
     run = crud.get_schedule_run(db, run_id)
     if not run:
@@ -214,7 +219,7 @@ def view_schedule(
 
 
 @router.post("/{run_id}/delete")
-def delete_schedule_run(run_id: int, db: Session = Depends(get_session)):
+def delete_schedule_run(run_id: int, db: Session = Depends(get_session), user: User = Depends(get_current_user)):
     run = crud.get_schedule_run(db, run_id)
     if not run:
         raise HTTPException(status_code=404, detail="Schedule run not found")
@@ -224,7 +229,7 @@ def delete_schedule_run(run_id: int, db: Session = Depends(get_session)):
 
 
 @router.get("/{run_id}/download/{file_type}")
-def download_export(run_id: int, file_type: str, db: Session = Depends(get_session)):
+def download_export(run_id: int, file_type: str, db: Session = Depends(get_session), user: User = Depends(get_current_user)):
     run = crud.get_schedule_run(db, run_id)
     if not run:
         raise HTTPException(status_code=404, detail="Schedule run not found")
@@ -253,6 +258,7 @@ def update_payout_record(
     notes: str = Form(""),
     status: str = Form("not_paid"),
     db: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
 ):
     payout = crud.get_payout(db, payout_id)
     if not payout or payout.schedule_run_id != run_id:

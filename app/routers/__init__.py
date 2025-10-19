@@ -1,4 +1,4 @@
 """Router package exports."""
-from . import dashboard, models, schedules
+from . import auth, dashboard, models, schedules
 
-__all__ = ["dashboard", "models", "schedules"]
+__all__ = ["auth", "dashboard", "models", "schedules"]

@@ -5,14 +5,16 @@ from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
 from app import crud
+from app.auth import User
 from app.database import get_session
 from app.dependencies import templates
+from app.routers.auth import get_current_user
 
 router = APIRouter(tags=["Dashboard"])
 
 
 @router.get("/dashboard")
-def dashboard(request: Request, db: Session = Depends(get_session)):
+def dashboard(request: Request, db: Session = Depends(get_session), user: User = Depends(get_current_user)):
     summary = crud.dashboard_summary(db)
     latest = summary.get("latest_run")
     if latest is not None:

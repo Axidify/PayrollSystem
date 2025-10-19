@@ -31,20 +31,33 @@ def get_session() -> Generator[Session, None, None]:
 
 
 def init_db() -> None:
-    """Ensure database tables exist."""
+    """Ensure database tables exist and create default admin user if needed."""
 
     from app import models  # noqa: F401  (import ensures model metadata is registered)
+    from app.auth import User  # noqa: F401  (import ensures User model is registered)
 
     # Try to create all tables; if they already exist, skip
     try:
         Base.metadata.create_all(bind=engine, checkfirst=True)
     except Exception as e:
         # If table creation fails due to existing tables, just log and continue
-        # This is safe because we only skip if tables already exist
         if "already exists" in str(e).lower():
             print(f"[init_db] Tables already exist, skipping creation: {e}")
         else:
             raise
+    
+    # Create default admin user if it doesn't exist
+    session = SessionLocal()
+    try:
+        from app.auth import User
+        existing_admin = session.query(User).filter(User.username == "admin").first()
+        if not existing_admin:
+            admin_user = User.create_user("admin", "admin")
+            session.add(admin_user)
+            session.commit()
+            print("[init_db] Created default admin user (username: admin, password: admin)")
+    finally:
+        session.close()
     
     ensure_schema_updates()
 

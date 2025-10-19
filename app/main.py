@@ -7,10 +7,11 @@ from fastapi.staticfiles import StaticFiles
 from fastapi import Response
 
 from app.database import init_db
-from app.routers import dashboard, models, schedules
+from app.routers import dashboard, models, schedules, auth
 
 app = FastAPI(title="Payroll Scheduler", version="1.0.0")
 
+app.include_router(auth.router)
 app.include_router(dashboard.router)
 app.include_router(models.router)
 app.include_router(schedules.router)
@@ -25,7 +26,7 @@ def startup_event() -> None:
 
 @app.get("/")
 def root() -> RedirectResponse:
-    return RedirectResponse(url="/dashboard")
+    return RedirectResponse(url="/login")
 
 
 @app.get("/health")
