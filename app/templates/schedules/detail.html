@@ -7,10 +7,7 @@
         <p>Generated {{ run.created_at.strftime('%m/%d/%Y') }} · Currency {{ run.currency }}</p>
     </div>
     <div class="download-links">
-        <a class="button" href="/schedules/{{ run.id }}/download/xlsx">Excel Workbook</a>
-        <a class="button" href="/schedules/{{ run.id }}/download/schedule_csv">Schedule CSV</a>
-        <a class="button" href="/schedules/{{ run.id }}/download/models_csv">Models CSV</a>
-        <a class="button" href="/schedules/{{ run.id }}/download/validation_csv">Validation CSV</a>
+        <a class="button" href="/schedules/{{ run.id }}/download/schedule_csv">Export Schedule</a>
     </div>
 </section>
 
@@ -119,7 +116,6 @@
                 </th>
                 <th>Pay Date</th>
                 <th>Code</th>
-                <th>Real Name</th>
                 <th>Working Name</th>
                 <th>Method</th>
                 <th>Frequency</th>
@@ -136,7 +132,6 @@
                 </td>
                 <td>{{ payout.pay_date.strftime('%m/%d/%Y') }}</td>
                 <td>{{ payout.code }}</td>
-                <td>{{ payout.real_name }}</td>
                 <td>{{ payout.working_name }}</td>
                 <td>{{ payout.payment_method }}</td>
                 <td>{{ payout.payment_frequency|title }}</td>

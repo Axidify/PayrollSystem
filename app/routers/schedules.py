@@ -283,7 +283,6 @@ def download_export(run_id: int, file_type: str, db: Session = Depends(get_sessi
         writer.writerow([
             "Pay Date",
             "Code",
-            "Real Name",
             "Working Name",
             "Method",
             "Frequency",
@@ -297,7 +296,6 @@ def download_export(run_id: int, file_type: str, db: Session = Depends(get_sessi
             writer.writerow([
                 payout.pay_date.strftime("%m/%d/%Y") if payout.pay_date else "",
                 payout.code or "",
-                payout.real_name or "",
                 payout.working_name or "",
                 payout.payment_method or "",
                 payout.payment_frequency.title() if payout.payment_frequency else "",
