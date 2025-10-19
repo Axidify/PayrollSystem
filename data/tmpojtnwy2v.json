@@ -1,0 +1,1 @@
+{"valid_rows": [], "payout_duplicates": {}, "errors": ["Row 2: Invalid date format '10/9/2025'. Use YYYY-MM-DD", "Row 3: Invalid date format '10/9/2025'. Use YYYY-MM-DD", "Row 4: Invalid date format '10/9/2025'. Use YYYY-MM-DD", "Row 5: Invalid date format '10/9/2025'. Use YYYY-MM-DD"], "has_payment_data": false}
