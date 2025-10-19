@@ -136,10 +136,21 @@ def ensure_schema_updates() -> None:
         if "is_locked" not in users_columns:
             print("[ensure_schema_updates] Adding security fields to users table")
             with engine.begin() as connection:
-                connection.execute(text("ALTER TABLE users ADD COLUMN is_locked BOOLEAN NOT NULL DEFAULT 0"))
-                connection.execute(text("ALTER TABLE users ADD COLUMN locked_until DATETIME"))
+                is_postgres = DATABASE_URL.startswith("postgresql")
+                
+                # Add is_locked column
+                connection.execute(text("ALTER TABLE users ADD COLUMN is_locked BOOLEAN NOT NULL DEFAULT false"))
+                
+                # Add locked_until column (use TIMESTAMP for PostgreSQL, DATETIME for SQLite)
+                datetime_type = "TIMESTAMP" if is_postgres else "DATETIME"
+                connection.execute(text(f"ALTER TABLE users ADD COLUMN locked_until {datetime_type}"))
+                
+                # Add failed_login_count column
                 connection.execute(text("ALTER TABLE users ADD COLUMN failed_login_count INTEGER NOT NULL DEFAULT 0"))
-                connection.execute(text("ALTER TABLE users ADD COLUMN last_failed_login DATETIME"))
+                
+                # Add last_failed_login column
+                connection.execute(text(f"ALTER TABLE users ADD COLUMN last_failed_login {datetime_type}"))
+                
                 print("[ensure_schema_updates] Successfully added security fields to users table")
     except Exception as e:
         print(f"[ensure_schema_updates] Error updating users table: {e}")
