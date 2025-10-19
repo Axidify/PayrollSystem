@@ -35,14 +35,16 @@ def init_db() -> None:
 
     from app import models  # noqa: F401  (import ensures model metadata is registered)
 
-    # For SQLite, checkfirst=True sometimes fails with "table already exists"
-    # Instead, inspect existing tables and only create missing ones
-    inspector = inspect(engine)
-    existing_tables = set(inspector.get_table_names())
-    
-    for table in Base.metadata.tables.values():
-        if table.name not in existing_tables:
-            table.create(bind=engine, checkfirst=True)
+    # Try to create all tables; if they already exist, skip
+    try:
+        Base.metadata.create_all(bind=engine, checkfirst=True)
+    except Exception as e:
+        # If table creation fails due to existing tables, just log and continue
+        # This is safe because we only skip if tables already exist
+        if "already exists" in str(e).lower():
+            print(f"[init_db] Tables already exist, skipping creation: {e}")
+        else:
+            raise
     
     ensure_schema_updates()
 
