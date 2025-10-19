@@ -1,4 +1,4 @@
-# Payroll Scheduler
+# Payroll Desk
 
 Automates recurring payroll schedules for the agency, supports manual roster imports via CLI, and now provides a web UI for managing models and schedule runs with persistent storage.
 
