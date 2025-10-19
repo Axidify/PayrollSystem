@@ -26,31 +26,18 @@ router = APIRouter(prefix="/models", tags=["Models"])
 
 
 def _parse_date(date_str: str) -> date:
-    """Parse date from multiple formats: YYYY-MM-DD, MM/DD/YYYY, or YYYY/MM/DD."""
+    """Parse date from DD/MM/YYYY format only."""
     date_str = date_str.strip()
     
-    # Try YYYY-MM-DD format first (ISO format with dashes)
-    try:
-        return date.fromisoformat(date_str)
-    except ValueError:
-        pass
-    
-    # Try MM/DD/YYYY format (US format with slashes)
+    # Try DD/MM/YYYY format only
     try:
         from datetime import datetime
-        return datetime.strptime(date_str, "%m/%d/%Y").date()
+        return datetime.strptime(date_str, "%d/%m/%Y").date()
     except ValueError:
         pass
     
-    # Try YYYY/MM/DD format (with slashes)
-    try:
-        from datetime import datetime
-        return datetime.strptime(date_str, "%Y/%m/%d").date()
-    except ValueError:
-        pass
-    
-    # If all fail, raise with helpful message
-    raise ValueError(f"Date must be in YYYY-MM-DD, MM/DD/YYYY, or YYYY/MM/DD format, got '{date_str}'")
+    # If it fails, raise with helpful message
+    raise ValueError(f"Date must be in DD/MM/YYYY format, got '{date_str}'")
 
 
 def _normalize_filters(
