@@ -35,7 +35,7 @@ def init_db() -> None:
 
     from app import models  # noqa: F401  (import ensures model metadata is registered)
 
-    Base.metadata.create_all(bind=engine)
+    Base.metadata.create_all(bind=engine, checkfirst=True)
     ensure_schema_updates()
 
 
