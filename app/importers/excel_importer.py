@@ -50,8 +50,6 @@ PAYOUT_COLUMNS: dict[str, dict[str, Any]] = {
     "status": {"aliases": ["status", "payment status"], "required": True},
     "payment_method": {"aliases": ["payment method", "method", "payment_method"], "required": False},
     "payment_frequency": {"aliases": ["payment frequency", "frequency", "payment_frequency"], "required": False},
-    "working_name": {"aliases": ["working name", "stage name", "working_name"], "required": False},
-    "real_name": {"aliases": ["real name", "legal name", "real_name"], "required": False},
     "notes": {"aliases": ["notes", "note", "notes & actions", "actions"], "required": False},
 }
 
@@ -388,8 +386,6 @@ def import_payouts(
             frequency = row.get("payment_frequency")
             frequency_value = normalize_frequency(frequency) if not pd.isna(frequency) else model.payment_frequency
             method_value = clean_string(row.get("payment_method")) or model.payment_method
-            working_name = clean_string(row.get("working_name")) or model.working_name
-            real_name = clean_string(row.get("real_name")) or model.real_name
             notes_value = clean_string(row.get("notes"))
         except ValueError as exc:
             errors.append(f"Row {idx + 2}: {exc}")
@@ -400,8 +396,8 @@ def import_payouts(
             model_id=model.id,
             pay_date=pay_date,
             code=code,
-            real_name=real_name,
-            working_name=working_name,
+            real_name=model.real_name,
+            working_name=model.working_name,
             payment_method=method_value,
             payment_frequency=frequency_value,
             amount=amount,
