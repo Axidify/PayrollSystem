@@ -1,6 +1,7 @@
 """Application service layer."""
 from __future__ import annotations
 
+import json
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
@@ -53,10 +54,29 @@ class PayrollService:
             self.db, target_year=target_year, target_month=target_month
         )
         
-        # If a run exists, delete it so we can replace it with the updated one
+        # Preserve old payout status and notes for matching payouts
+        old_payout_data = {}
         if existing_runs:
-            for existing_run in existing_runs:
-                crud.delete_schedule_run(self.db, existing_run)
+            run = existing_runs[0]  # Use the most recent run for this month
+            # Save status and notes from old payouts before clearing
+            for payout in run.payouts:
+                key = (payout.code, payout.pay_date)
+                old_payout_data[key] = {
+                    "status": payout.status,
+                    "notes": payout.notes,
+                }
+            # Clear old payouts and validations so we can refresh with current data
+            crud.clear_schedule_data(self.db, run)
+        else:
+            run = crud.create_schedule_run(
+                self.db,
+                target_year=target_year,
+                target_month=target_month,
+                currency=currency,
+                include_inactive=include_inactive,
+                summary={},  # Will be updated below
+                export_path=str(output_dir),
+            )
         
         models = crud.list_models(self.db)
         records = [self._to_record(index, model) for index, model in enumerate(models, start=1)]
@@ -69,15 +89,11 @@ class PayrollService:
             schedule_df, models_df, validation_df, currency
         )
 
-        run = crud.create_schedule_run(
-            self.db,
-            target_year=target_year,
-            target_month=target_month,
-            currency=currency,
-            include_inactive=include_inactive,
-            summary=summary,
-            export_path=str(output_dir),
-        )
+        # Update the run with new summary data
+        run.summary_models_paid = summary.get("models_paid", 0)
+        run.summary_total_payout = Decimal(str(summary.get("total_payout", 0)))
+        run.summary_frequency_counts = json.dumps(summary.get("frequency_counts", {}))
+        self.db.commit()
 
         amount_column = f"Amount ({currency})"
         payout_records = schedule_df.to_dict(orient="records")
@@ -97,6 +113,7 @@ class PayrollService:
             run,
             payout_records,
             amount_column=amount_column,
+            old_payout_data=old_payout_data,
         )
         crud.store_validation_messages(self.db, run, records, include_inactive)
 
