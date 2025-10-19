@@ -34,7 +34,7 @@ def init_db() -> None:
     """Ensure database tables exist and create default admin user if needed."""
 
     from app import models  # noqa: F401  (import ensures model metadata is registered)
-    from app.auth import User  # noqa: F401  (import ensures User model is registered)
+    from app.auth import User
 
     # Try to create all tables; if they already exist, skip
     try:
@@ -49,15 +49,19 @@ def init_db() -> None:
     # Create default admin user if it doesn't exist
     session = SessionLocal()
     try:
-        from app.auth import User
         existing_admin = session.query(User).filter(User.username == "admin").first()
         if not existing_admin:
             admin_user = User.create_user("admin", "admin", role="admin")
             session.add(admin_user)
             session.commit()
             print("[init_db] Created default admin user (username: admin, password: admin, role: admin)")
+    except Exception as e:
+        print(f"[init_db] Error creating admin user: {e}")
+        session.rollback()
     finally:
         session.close()
+    
+    ensure_schema_updates()
     
     ensure_schema_updates()
 
