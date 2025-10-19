@@ -1,0 +1,51 @@
+name: Tests
+
+on:
+  push:
+    branches: [ main, "feature/**" ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: payroll_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Run tests
+      env:
+        PAYROLL_DATABASE_URL: postgresql://testuser:testpass@localhost:5432/payroll_test
+      run: |
+        pytest -v --tb=short
+    
+    - name: Health check (start app briefly)
+      env:
+        PAYROLL_DATABASE_URL: postgresql://testuser:testpass@localhost:5432/payroll_test
+      run: |
+        timeout 5 python -c "from app.database import init_db; init_db(); print('Database initialization successful')" || true
