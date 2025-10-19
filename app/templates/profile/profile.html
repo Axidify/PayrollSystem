@@ -1,228 +1,183 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Profile - Payroll Scheduler</title>
-    <link rel="stylesheet" href="/static/css/styles.css">
-    <style>
-        .profile-container {
-            max-width: 600px;
-            margin: 40px auto;
-            padding: 30px;
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-        h1 {
-            color: #333;
-            text-align: center;
-            margin-bottom: 10px;
-        }
-        .user-info-section {
-            background-color: #f9f9f9;
-            padding: 20px;
-            border-radius: 5px;
-            margin-bottom: 30px;
-            text-align: center;
-        }
-        .user-info-section p {
-            margin: 10px 0;
-            font-size: 16px;
-        }
-        .user-info-section strong {
-            color: #667eea;
-        }
-        .form-group {
-            margin-bottom: 20px;
-        }
-        label {
-            display: block;
-            margin-bottom: 8px;
-            color: #555;
-            font-weight: bold;
-        }
-        input {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            box-sizing: border-box;
-            font-size: 16px;
-        }
-        input:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 5px rgba(102, 126, 234, 0.5);
-        }
-        .error-message {
-            color: #d9534f;
-            background-color: #f8d7da;
-            border: 1px solid #f5c6cb;
-            padding: 12px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-            text-align: center;
-        }
-        .success-message {
-            color: #155724;
-            background-color: #d4edda;
-            border: 1px solid #c3e6cb;
-            padding: 12px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-            text-align: center;
-        }
-        .button-group {
-            display: flex;
-            gap: 10px;
-            margin-top: 30px;
-        }
-        .btn {
-            flex: 1;
-            padding: 12px;
-            border: none;
-            border-radius: 5px;
-            font-size: 16px;
-            cursor: pointer;
-            font-weight: bold;
-        }
-        .btn-submit {
-            background-color: #667eea;
-            color: white;
-        }
-        .btn-submit:hover {
-            background-color: #5568d3;
-        }
-        .btn-cancel {
-            background-color: #ccc;
-            color: #333;
-            text-decoration: none;
-            text-align: center;
-        }
-        .btn-cancel:hover {
-            background-color: #bbb;
-        }
-        .top-nav {
-            background-color: #f8f9fa;
-            padding: 10px 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid #ddd;
-        }
-        .nav-links {
-            display: flex;
-            gap: 15px;
-        }
-        .nav-links a {
-            color: #667eea;
-            text-decoration: none;
-            font-weight: 500;
-        }
-        .nav-links a:hover {
-            text-decoration: underline;
-        }
-        .logout-btn {
-            background-color: #666;
-            color: white;
-            padding: 10px 15px;
-            text-decoration: none;
-            border-radius: 5px;
-        }
-        .logout-btn:hover {
-            background-color: #555;
-        }
-        .divider {
-            border-top: 2px solid #eee;
-            margin: 30px 0;
-        }
-        h2 {
-            color: #333;
-            margin-top: 0;
-            margin-bottom: 20px;
-        }
-    </style>
-</head>
-<body>
-    <div class="top-nav">
-        <div>
-            <strong>Payroll Scheduler</strong>
-        </div>
-        <div class="nav-links">
-            <a href="/dashboard">Dashboard</a>
-            <a href="/models">Models</a>
-            <a href="/schedules">Schedules</a>
-            {% if user.is_admin() %}
-            <a href="/admin/users">Users</a>
-            {% endif %}
-            <a href="/profile" style="color: #ff6b6b; font-weight: bold;">Profile</a>
-            <a href="/logout" class="logout-btn">Logout</a>
-        </div>
+{% extends "base.html" %}
+
+{% block title %}My Profile - Payroll Scheduler{% endblock %}
+
+{% block content %}
+<style>
+    .profile-container {
+        max-width: 600px;
+        padding: 30px;
+        background: rgba(30, 41, 59, 0.5);
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    }
+    h1 {
+        color: #f8fafc;
+        text-align: center;
+        margin-top: 0;
+        margin-bottom: 10px;
+    }
+    .user-info-section {
+        background-color: rgba(15, 23, 42, 0.5);
+        padding: 20px;
+        border-radius: 5px;
+        margin-bottom: 30px;
+        text-align: center;
+        border: 1px solid rgba(100, 116, 139, 0.3);
+    }
+    .user-info-section p {
+        margin: 10px 0;
+        font-size: 16px;
+        color: #cbd5e1;
+    }
+    .user-info-section strong {
+        color: #60a5fa;
+    }
+    .form-group {
+        margin-bottom: 20px;
+    }
+    label {
+        display: block;
+        margin-bottom: 8px;
+        color: #cbd5e1;
+        font-weight: bold;
+    }
+    input {
+        width: 100%;
+        padding: 12px;
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        border-radius: 5px;
+        box-sizing: border-box;
+        font-size: 16px;
+        background-color: rgba(15, 23, 42, 0.5);
+        color: #f8fafc;
+    }
+    input:focus {
+        outline: none;
+        border-color: #60a5fa;
+        box-shadow: 0 0 5px rgba(96, 165, 250, 0.3);
+    }
+    .error-message {
+        color: #fecaca;
+        background-color: rgba(127, 29, 29, 0.3);
+        border: 1px solid rgba(185, 28, 28, 0.5);
+        padding: 12px;
+        border-radius: 5px;
+        margin-bottom: 20px;
+        text-align: center;
+    }
+    .success-message {
+        color: #86efac;
+        background-color: rgba(20, 83, 45, 0.3);
+        border: 1px solid rgba(34, 197, 94, 0.5);
+        padding: 12px;
+        border-radius: 5px;
+        margin-bottom: 20px;
+        text-align: center;
+    }
+    .button-group {
+        display: flex;
+        gap: 10px;
+        margin-top: 30px;
+    }
+    .btn {
+        flex: 1;
+        padding: 12px;
+        border: none;
+        border-radius: 5px;
+        font-size: 16px;
+        cursor: pointer;
+        font-weight: bold;
+    }
+    .btn-submit {
+        background-color: #2563eb;
+        color: white;
+    }
+    .btn-submit:hover {
+        background-color: #1d4ed8;
+    }
+    .btn-cancel {
+        background-color: rgba(148, 163, 184, 0.2);
+        color: #e2e8f0;
+        text-decoration: none;
+        text-align: center;
+        border: 1px solid rgba(148, 163, 184, 0.3);
+    }
+    .btn-cancel:hover {
+        background-color: rgba(148, 163, 184, 0.3);
+    }
+    .divider {
+        border-top: 1px solid rgba(148, 163, 184, 0.2);
+        margin: 30px 0;
+    }
+    h2 {
+        color: #f8fafc;
+        margin-top: 0;
+        margin-bottom: 20px;
+    }
+</style>
+
+<div class="profile-container">
+    <h1>👤 My Profile</h1>
+
+    <div class="user-info-section">
+        <p>Username: <strong>{{ user.username }}</strong></p>
+        <p>Role: <strong>{{ user.role.upper() }}</strong></p>
+        <p>Member Since: <strong>{{ user.created_at.strftime('%B %d, %Y') }}</strong></p>
     </div>
 
-    <div class="profile-container">
-        <h1>👤 My Profile</h1>
+    {% if error %}
+    <div class="error-message">{{ error }}</div>
+    {% endif %}
 
-        <div class="user-info-section">
-            <p>Username: <strong>{{ user.username }}</strong></p>
-            <p>Role: <strong>{{ user.role.upper() }}</strong></p>
-            <p>Member Since: <strong>{{ user.created_at.strftime('%B %d, %Y') }}</strong></p>
+    {% if success %}
+    <div class="success-message">{{ success }}</div>
+    {% endif %}
+
+    <div class="divider"></div>
+
+    <h2>🔐 Change Password</h2>
+
+    <form method="post" action="/profile/change-password">
+        <div class="form-group">
+            <label for="current_password">Current Password</label>
+            <input 
+                type="password" 
+                id="current_password" 
+                name="current_password" 
+                required
+                placeholder="Enter your current password"
+            >
         </div>
 
-        {% if error %}
-        <div class="error-message">{{ error }}</div>
-        {% endif %}
+        <div class="form-group">
+            <label for="new_password">New Password</label>
+            <input 
+                type="password" 
+                id="new_password" 
+                name="new_password" 
+                required
+                placeholder="Enter new password (min 6 characters)"
+                minlength="6"
+            >
+        </div>
 
-        {% if success %}
-        <div class="success-message">{{ success }}</div>
-        {% endif %}
+        <div class="form-group">
+            <label for="confirm_password">Confirm New Password</label>
+            <input 
+                type="password" 
+                id="confirm_password" 
+                name="confirm_password" 
+                required
+                placeholder="Confirm new password"
+                minlength="6"
+            >
+        </div>
 
-        <div class="divider"></div>
-
-        <h2>🔐 Change Password</h2>
-
-        <form method="post" action="/profile/change-password">
-            <div class="form-group">
-                <label for="current_password">Current Password</label>
-                <input 
-                    type="password" 
-                    id="current_password" 
-                    name="current_password" 
-                    required
-                    placeholder="Enter your current password"
-                >
-            </div>
-
-            <div class="form-group">
-                <label for="new_password">New Password</label>
-                <input 
-                    type="password" 
-                    id="new_password" 
-                    name="new_password" 
-                    required
-                    placeholder="Enter new password (min 6 characters)"
-                    minlength="6"
-                >
-            </div>
-
-            <div class="form-group">
-                <label for="confirm_password">Confirm New Password</label>
-                <input 
-                    type="password" 
-                    id="confirm_password" 
-                    name="confirm_password" 
-                    required
-                    placeholder="Confirm new password"
-                    minlength="6"
-                >
-            </div>
-
-            <div class="button-group">
-                <button type="submit" class="btn btn-submit">Change Password</button>
-                <a href="/dashboard" class="btn btn-cancel">Back</a>
-            </div>
-        </form>
-    </div>
-</body>
-</html>
+        <div class="button-group">
+            <button type="submit" class="btn btn-submit">Change Password</button>
+            <a href="/dashboard" class="btn btn-cancel">Back</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
