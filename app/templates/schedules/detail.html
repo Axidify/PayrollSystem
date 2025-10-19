@@ -284,13 +284,14 @@ function sortTable(columnIndex) {
     // Reappend sorted rows
     rows.forEach(row => tbody.appendChild(row));
 
-    // Update header indicators
+    // Update header indicators (only for sortable columns: indices 1..7)
     document.querySelectorAll('.data-table th').forEach((th, idx) => {
         // Base label is header text without arrows
         const base = th.textContent.replace(/\s*[▲▼]\s*$/, '').trim();
         if (idx === columnIndex) {
             th.textContent = base + (isAscending ? ' ▲' : ' ▼');
-        } else if (idx > 0 && idx < 9) {
+        } else if (idx > 0 && idx < 8) {
+            // show default descending indicator for other sortable columns
             th.textContent = base + ' ▼';
         } else {
             th.textContent = base;
