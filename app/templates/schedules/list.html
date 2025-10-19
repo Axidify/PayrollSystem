@@ -7,7 +7,9 @@
         <p>Review historical schedules, totals, and frequency distribution.</p>
     </div>
     <div>
+        {% if user.role == 'admin' %}
         <a class="button" href="/schedules/new">Run Payroll</a>
+        {% endif %}
     </div>
 </section>
 
@@ -52,9 +54,11 @@
                 </td>
                 <td class="actions">
                     <a class="link-button" href="/schedules/{{ run.id }}">Open</a>
+                    {% if user.role == 'admin' %}
                     <form method="post" action="/schedules/{{ run.id }}/delete" onsubmit="return confirm('Delete this payroll run?');">
                         <button class="link-button" type="submit">Delete</button>
                     </form>
+                    {% endif %}
                 </td>
             </tr>
             {% else %}

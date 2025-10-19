@@ -62,14 +62,15 @@ def change_password(
             status_code=400,
         )
     
-    # Validate password length
-    if len(new_password) < 6:
+    # Validate new password strength
+    is_valid, error_msg = PasswordValidator.validate(new_password)
+    if not is_valid:
         return templates.TemplateResponse(
             "profile/profile.html",
             {
                 "request": request,
                 "user": user,
-                "error": "Password must be at least 6 characters",
+                "error": error_msg,
             },
             status_code=400,
         )
@@ -86,3 +87,4 @@ def change_password(
             "success": "Password changed successfully",
         },
     )
+

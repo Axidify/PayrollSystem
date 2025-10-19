@@ -7,7 +7,9 @@
         <p>Maintain active talent, salaries, and payment preferences.</p>
     </div>
     <div>
+        {% if user.role == 'admin' %}
         <a class="button" href="/models/new">Add Model</a>
+        {% endif %}
     </div>
 </section>
 
@@ -108,10 +110,12 @@
                 {% set lifetime = totals_map.get(model.id, 0) %}
                 <td>${{ '%.2f' | format(lifetime) }}</td>
                 <td class="actions">
+                    {% if user.role == 'admin' %}
                     <a class="link-button" href="/models/{{ model.id }}/edit">Edit</a>
                     <form action="/models/{{ model.id }}/delete" method="post" onsubmit="return confirm('Delete this model?');">
                         <button class="link-button" type="submit">Delete</button>
                     </form>
+                    {% endif %}
                 </td>
             </tr>
             {% else %}
