@@ -127,6 +127,31 @@ def view_schedule(
     if not run:
         raise HTTPException(status_code=404, detail="Schedule run not found")
 
+    # Auto-refresh: if the run corresponds to the current month, re-run payroll
+    # so newly added models for this month appear without requiring manual "Run Payroll".
+    today = date.today()
+    if run.target_year == today.year and run.target_month == today.month:
+        # Re-run payroll for this cycle. The PayrollService will reuse the existing
+        # ScheduleRun and preserve existing payout status/notes when refreshing.
+        service = PayrollService(db)
+        try:
+            # Use the existing run's currency and export path when refreshing
+            export_path = Path(run.export_path) if run.export_path else Path("exports")
+            _, _, _, _, refreshed_run_id = service.run_payroll(
+                target_year=run.target_year,
+                target_month=run.target_month,
+                currency=run.currency if getattr(run, "currency", None) else "USD",
+                include_inactive=False,
+                output_dir=export_path,
+            )
+            # If a different run record was returned, load that one instead
+            if refreshed_run_id and refreshed_run_id != run.id:
+                run = crud.get_schedule_run(db, refreshed_run_id)
+        except Exception:
+            # If refresh fails, continue to render the existing run rather than failing the page.
+            # Errors are intentionally swallowed here to avoid blocking the user from viewing the run.
+            pass
+
     code_filter = code.strip() if code else None
     frequency_filter = frequency if frequency else None
     method_filter = payment_method if payment_method else None
@@ -273,37 +298,4 @@ def update_payout_record(
 
     trimmed = notes.strip()
     crud.update_payout(db, payout, trimmed if trimmed else None, status_value)
-    return RedirectResponse(url=f"/schedules/{run_id}", status_code=303)
-
-
-@router.post("/{run_id}/payouts/bulk-update")
-def bulk_update_payouts(
-    run_id: int,
-    payout_ids: str = Form(""),  # comma-separated IDs
-    status: str = Form("not_paid"),
-    notes: str = Form(""),
-    db: Session = Depends(get_session),
-    user: User = Depends(get_current_user),
-):
-    """Bulk update status and notes for multiple payouts."""
-    if not payout_ids.strip():
-        return RedirectResponse(url=f"/schedules/{run_id}", status_code=303)
-    
-    try:
-        ids = [int(id.strip()) for id in payout_ids.split(",") if id.strip()]
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid payout IDs")
-    
-    status_value = status.strip().lower()
-    if status_value not in PAYOUT_STATUS_ENUM:
-        raise HTTPException(status_code=400, detail="Invalid payout status")
-    
-    trimmed_notes = notes.strip() if notes.strip() else None
-    
-    # Update each payout
-    for payout_id in ids:
-        payout = crud.get_payout(db, payout_id)
-        if payout and payout.schedule_run_id == run_id:
-            crud.update_payout(db, payout, trimmed_notes, status_value)
-    
     return RedirectResponse(url=f"/schedules/{run_id}", status_code=303)
