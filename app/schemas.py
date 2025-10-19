@@ -19,6 +19,7 @@ class ModelBase(BaseModel):
     payment_method: str = Field(..., min_length=1, max_length=100)
     payment_frequency: str
     amount_monthly: Decimal = Field(..., gt=0)
+    crypto_wallet: Optional[str] = Field(None, max_length=200)
 
     @validator("status")
     def validate_status(cls, value: str) -> str:

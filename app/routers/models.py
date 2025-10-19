@@ -188,6 +188,7 @@ def create_model(
     payment_method: str = Form(...),
     payment_frequency: str = Form(...),
     amount_monthly: str = Form(...),
+    crypto_wallet: str = Form(None),
     db: Session = Depends(get_session),
     user: User = Depends(get_admin_user),
 ):
@@ -200,6 +201,7 @@ def create_model(
         payment_method=payment_method,
         payment_frequency=payment_frequency,
         amount_monthly=amount_monthly,
+        crypto_wallet=crypto_wallet if crypto_wallet else None,
     )
     if crud.get_model_by_code(db, payload.code):
         raise HTTPException(status_code=400, detail="Model code already exists.")
@@ -256,6 +258,7 @@ def update_model(
     payment_method: str = Form(...),
     payment_frequency: str = Form(...),
     amount_monthly: str = Form(...),
+    crypto_wallet: str = Form(None),
     db: Session = Depends(get_session),
     user: User = Depends(get_admin_user),
 ):
@@ -272,6 +275,7 @@ def update_model(
         payment_method=payment_method,
         payment_frequency=payment_frequency,
         amount_monthly=amount_monthly,
+        crypto_wallet=crypto_wallet if crypto_wallet else None,
     )
 
     existing = crud.get_model_by_code(db, payload.code)

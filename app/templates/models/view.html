@@ -59,6 +59,11 @@
         <label>Monthly Amount (USD)</label>
         <div style="padding: 8px 0; font-weight: 500;">${{ '%.2f'|format(model.amount_monthly) }}</div>
     </div>
+
+    <div class="form-row" style="background: rgba(51, 65, 85, 0.3); padding: 12px; border-radius: 6px; margin-bottom: 16px;">
+        <label>Crypto Wallet Address</label>
+        <div style="padding: 8px 0; font-weight: 500;">{{ model.crypto_wallet if model.crypto_wallet else '—' }}</div>
+    </div>
 </section>
 
 <section class="card" style="max-width: 820px;">

@@ -118,3 +118,14 @@ def ensure_schema_updates() -> None:
                 print("[ensure_schema_updates] Successfully added status column to payouts table")
     except Exception as e:
         print(f"[ensure_schema_updates] Error updating payouts table: {e}")
+    
+    # Ensure models table has crypto_wallet column
+    try:
+        models_columns = {column["name"] for column in inspector.get_columns("models")}
+        if "crypto_wallet" not in models_columns:
+            print("[ensure_schema_updates] Adding crypto_wallet column to models table")
+            with engine.begin() as connection:
+                connection.execute(text("ALTER TABLE models ADD COLUMN crypto_wallet VARCHAR(200)"))
+                print("[ensure_schema_updates] Successfully added crypto_wallet column to models table")
+    except Exception as e:
+        print(f"[ensure_schema_updates] Error updating models table: {e}")

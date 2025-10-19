@@ -26,6 +26,7 @@ class Model(Base):
     payment_method: Mapped[str] = mapped_column(String(100), nullable=False)
     payment_frequency: Mapped[str] = mapped_column(String(20), nullable=False)
     amount_monthly: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    crypto_wallet: Mapped[str] = mapped_column(String(200), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
