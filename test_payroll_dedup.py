@@ -13,7 +13,7 @@ from app.models import Model
 from app.services import PayrollService
 from app import crud
 
-def test_payroll_deduplication():
+def test_payroll_refresh():
     """Test that running payroll twice in the same month replaces the first run."""
     
     print("=" * 70)
@@ -116,7 +116,7 @@ def test_payroll_deduplication():
         for payout in payouts2:
             print(f"     - {payout.code} ({payout.real_name}): ${payout.amount}")
         
-        # Verify deduplication
+        # Verify refresh behavior
         print("\n5. Verification...")
         
         # Check all runs in database
@@ -125,17 +125,13 @@ def test_payroll_deduplication():
         for run in all_runs:
             print(f"     - Run {run.id}: {run.target_year}-{run.target_month:02d}")
         
-        # Check that old run was deleted
-        old_run = db.query(crud.ScheduleRun).filter(crud.ScheduleRun.id == run_id1).first()
-        if old_run is None:
-            print("   ✓ Old run (Run 1) was deleted")
+        # CRITICAL: Run IDs should be the SAME (refresh/reuse behavior)
+        if run_id1 == run_id2:
+            print(f"   ✓ SAME run ID reused: {run_id1} == {run_id2}")
         else:
-            print(f"   ℹ️  Old run still exists (Run ID {old_run.id}). This is OK if the second run got a new ID.")
+            print(f"   ✗ ERROR: Expected SAME run ID (refresh), but got different IDs:")
             print(f"      Run 1 ID: {run_id1}, Run 2 ID: {run_id2}")
-            if run_id1 != run_id2:
-                print("   ✓ Different run IDs - deduplication created new run (acceptable)")
-            else:
-                print("   ℹ️  Same run ID - database reused the autoincrement ID")
+            return False
         
         # The key test: should only have ONE run for October 2025
         october_runs = db.query(crud.ScheduleRun).filter(
@@ -144,32 +140,32 @@ def test_payroll_deduplication():
         ).all()
         
         if len(october_runs) == 1:
-            print(f"   ✓ Only ONE run for October 2025 (old one was deleted)")
+            print(f"   ✓ Only ONE run for October 2025 (refresh reused the existing run)")
         else:
             print(f"   ✗ ERROR: Expected 1 run for October 2025, found {len(october_runs)}")
             return False
         
-        # Check that new run has all 3 models
+        # Check that refreshed run has all 3 models (old payouts cleared, new ones added)
         if len(payouts2) == 3:
-            print(f"   ✓ New run has all 3 models (was {len(payouts1)}, now {len(payouts2)})")
+            print(f"   ✓ Refreshed run has all 3 models (was {len(payouts1)}, now {len(payouts2)})")
         else:
-            print(f"   ✗ ERROR: Expected 3 payouts, got {len(payouts2)}")
+            print(f"   ✗ ERROR: Expected 3 payouts in refreshed run, got {len(payouts2)}")
             return False
         
-        # Check that new run includes the new model
+        # Check that refreshed run includes the new model
         model3_payout = next((p for p in payouts2 if p.code == "M003"), None)
         if model3_payout:
-            print(f"   ✓ New model M003 included in Run 2: ${model3_payout.amount}")
+            print(f"   ✓ New model M003 included in refreshed run: ${model3_payout.amount}")
         else:
-            print("   ✗ ERROR: New model M003 not found in Run 2")
+            print("   ✗ ERROR: New model M003 not found in refreshed run")
             return False
         
-        # Check total payouts in system
+        # Check total payouts in system (should be 3, not 6, proving deduplication)
         all_payouts = db.query(crud.Payout).all()
         if len(all_payouts) == 3:
             print(f"   ✓ Total payouts in database: {len(all_payouts)} (no duplicates)")
         else:
-            print(f"   ✗ ERROR: Expected 3 total payouts, got {len(all_payouts)}")
+            print(f"   ✗ ERROR: Expected 3 total payouts (no duplicates), got {len(all_payouts)}")
             return False
         
         print("\n" + "=" * 70)
@@ -186,5 +182,5 @@ def test_payroll_deduplication():
         db.close()
 
 if __name__ == "__main__":
-    success = test_payroll_deduplication()
+    success = test_payroll_refresh()
     sys.exit(0 if success else 1)
