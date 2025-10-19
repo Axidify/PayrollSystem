@@ -78,6 +78,17 @@ def ensure_schema_updates() -> None:
     """Ensure all required columns exist in the database tables."""
     inspector = inspect(engine)
     
+    # Remove is_active column from users table (migration from soft-delete to hard-delete)
+    try:
+        users_columns = {column["name"] for column in inspector.get_columns("users")}
+        if "is_active" in users_columns:
+            print("[ensure_schema_updates] Removing deprecated is_active column from users table")
+            with engine.begin() as connection:
+                connection.execute(text("ALTER TABLE users DROP COLUMN is_active"))
+                print("[ensure_schema_updates] Successfully removed is_active column")
+    except Exception as e:
+        print(f"[ensure_schema_updates] Error removing is_active column: {e}")
+    
     # Ensure users table has role column
     try:
         users_columns = {column["name"] for column in inspector.get_columns("users")}
