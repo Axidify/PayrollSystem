@@ -25,6 +25,27 @@ from app.schemas import ModelCreate, ModelUpdate
 router = APIRouter(prefix="/models", tags=["Models"])
 
 
+def _parse_date(date_str: str) -> date:
+    """Parse date from multiple formats: YYYY-MM-DD or MM/DD/YYYY."""
+    date_str = date_str.strip()
+    
+    # Try YYYY-MM-DD format first (ISO format)
+    try:
+        return date.fromisoformat(date_str)
+    except ValueError:
+        pass
+    
+    # Try MM/DD/YYYY format
+    try:
+        from datetime import datetime
+        return datetime.strptime(date_str, "%m/%d/%Y").date()
+    except ValueError:
+        pass
+    
+    # If both fail, raise with helpful message
+    raise ValueError(f"Date must be in YYYY-MM-DD or MM/DD/YYYY format, got '{date_str}'")
+
+
 def _normalize_filters(
     code: str | None,
     status: str | None,
@@ -285,9 +306,9 @@ async def import_models_csv(
                 
                 # Parse date
                 try:
-                    start_date_obj = date.fromisoformat(start_date_str.strip())
-                except ValueError:
-                    errors.append(f"Row {row_num}: Invalid date format '{start_date_str}'. Use YYYY-MM-DD")
+                    start_date_obj = _parse_date(start_date_str.strip())
+                except ValueError as e:
+                    errors.append(f"Row {row_num}: Invalid date format '{start_date_str}'. {str(e)}")
                     continue
                 
                 # Parse amount
@@ -316,8 +337,12 @@ async def import_models_csv(
                         payment_notes_str = (row.get('notes') or row.get('Notes') or '').strip()
                         
                         if pay_date_str and payment_amount_str and payment_status_str:
-                            # Parse payment date
-                            pay_date_obj = date.fromisoformat(pay_date_str.strip())
+                            # Parse payment date - supports YYYY-MM-DD and MM/DD/YYYY
+                            try:
+                                pay_date_obj = _parse_date(pay_date_str.strip())
+                            except ValueError as e:
+                                errors.append(f"Row {row_num}: Invalid payment date format '{pay_date_str}'. {str(e)}")
+                                continue
                             
                             # Parse payment amount
                             payment_amount = Decimal(payment_amount_str.strip())
