@@ -15,7 +15,7 @@ from app.auth import User
 from app.database import get_session
 from app.dependencies import templates
 from app.models import FREQUENCY_ENUM, STATUS_ENUM
-from app.routers.auth import get_current_user
+from app.routers.auth import get_current_user, get_admin_user
 from app.schemas import ModelCreate, ModelUpdate
 
 router = APIRouter(prefix="/models", tags=["Models"])
@@ -166,7 +166,7 @@ def export_models_csv(
 
 
 @router.get("/new")
-def new_model_form(request: Request, user: User = Depends(get_current_user)):
+def new_model_form(request: Request, user: User = Depends(get_admin_user)):
     return templates.TemplateResponse(
         "models/form.html",
         {
@@ -189,7 +189,7 @@ def create_model(
     payment_frequency: str = Form(...),
     amount_monthly: str = Form(...),
     db: Session = Depends(get_session),
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_admin_user),
 ):
     payload = ModelCreate(
         status=status,
@@ -208,7 +208,7 @@ def create_model(
 
 
 @router.get("/{model_id}/edit")
-def edit_model_form(model_id: int, request: Request, db: Session = Depends(get_session), user: User = Depends(get_current_user)):
+def edit_model_form(model_id: int, request: Request, db: Session = Depends(get_session), user: User = Depends(get_admin_user)):
     model = crud.get_model(db, model_id)
     if not model:
         raise HTTPException(status_code=404, detail="Model not found")
@@ -236,7 +236,7 @@ def update_model(
     payment_frequency: str = Form(...),
     amount_monthly: str = Form(...),
     db: Session = Depends(get_session),
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_admin_user),
 ):
     model = crud.get_model(db, model_id)
     if not model:
@@ -262,7 +262,7 @@ def update_model(
 
 
 @router.post("/{model_id}/delete")
-def delete_model(model_id: int, db: Session = Depends(get_session), user: User = Depends(get_current_user)):
+def delete_model(model_id: int, db: Session = Depends(get_session), user: User = Depends(get_admin_user)):
     model = crud.get_model(db, model_id)
     if not model:
         raise HTTPException(status_code=404, detail="Model not found")

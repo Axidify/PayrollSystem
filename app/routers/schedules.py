@@ -15,7 +15,7 @@ from app.auth import User
 from app.database import get_session
 from app.dependencies import templates
 from app.models import PAYOUT_STATUS_ENUM
-from app.routers.auth import get_current_user
+from app.routers.auth import get_current_user, get_admin_user
 from app.services import PayrollService
 
 router = APIRouter(prefix="/schedules", tags=["Schedules"])
@@ -62,7 +62,7 @@ def list_runs(
 
 
 @router.get("/new")
-def new_schedule_form(request: Request, user: User = Depends(get_current_user)):
+def new_schedule_form(request: Request, user: User = Depends(get_admin_user)):
     today = date.today()
     default_month = f"{today.year:04d}-{today.month:02d}"
     return templates.TemplateResponse(
@@ -85,7 +85,7 @@ def run_schedule(
     include_inactive: str | None = Form(None),
     output_dir: str = Form(str(DEFAULT_EXPORT_DIR)),
     db: Session = Depends(get_session),
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_admin_user),
 ):
     try:
         year_str, month_str = month.split("-")
@@ -222,7 +222,7 @@ def view_schedule(
 
 
 @router.post("/{run_id}/delete")
-def delete_schedule_run(run_id: int, db: Session = Depends(get_session), user: User = Depends(get_current_user)):
+def delete_schedule_run(run_id: int, db: Session = Depends(get_session), user: User = Depends(get_admin_user)):
     run = crud.get_schedule_run(db, run_id)
     if not run:
         raise HTTPException(status_code=404, detail="Schedule run not found")

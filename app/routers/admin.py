@@ -8,16 +8,9 @@ from sqlalchemy.orm import Session
 from app.auth import User
 from app.database import get_session
 from app.dependencies import templates
-from app.routers.auth import get_current_user
+from app.routers.auth import get_current_user, get_admin_user
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
-
-
-def get_admin_user(user: User = Depends(get_current_user)) -> User:
-    """Dependency to ensure user is admin."""
-    if not user.is_admin():
-        raise HTTPException(status_code=403, detail="Admin access required")
-    return user
 
 
 @router.get("/users")
