@@ -4,6 +4,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 
 from app.auth import User
 from app.database import get_session
@@ -86,7 +87,23 @@ def create_user(
     
     new_user = User.create_user(username, password, role=role)
     db.add(new_user)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as e:
+        db.rollback()
+        # Handle unique constraint violation
+        if "username" in str(e):
+            return templates.TemplateResponse(
+                "admin/user_form.html",
+                {
+                    "request": request,
+                    "action": "create",
+                    "error": "Username already exists",
+                    "user": admin,
+                },
+                status_code=400,
+            )
+        raise
     return RedirectResponse(url="/admin/users", status_code=303)
 
 
