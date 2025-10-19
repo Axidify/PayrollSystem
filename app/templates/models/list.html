@@ -9,7 +9,6 @@
     <div>
         {% if user.role == 'admin' %}
         <a class="button" href="/models/new">Add Model</a>
-        <button class="button secondary" type="button" onclick="openImportModal()">Import CSV</button>
         {% endif %}
     </div>
 </section>
@@ -128,107 +127,4 @@
         </tbody>
     </table>
 </section>
-
-<!-- Import CSV Modal -->
-<div id="import-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
-    <div style="background: #0f172a; border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 16px; padding: 32px; max-width: 500px; width: 90%;">
-        <h2 style="margin-top: 0; color: #f8fafc; margin-bottom: 16px;">Import Models from CSV</h2>
-        <p style="color: #cbd5e1; margin-bottom: 20px;">Upload a CSV file with model data. Columns: status, code, real_name, working_name, start_date, payment_method, payment_frequency, amount_monthly, crypto_wallet (optional)</p>
-        
-        <form id="import-form" method="post" action="/models/import" enctype="multipart/form-data" style="display: flex; flex-direction: column; gap: 16px;">
-            <div>
-                <label for="csv-file" style="display: block; color: #cbd5e1; font-weight: 600; margin-bottom: 8px;">Select CSV File</label>
-                <input id="csv-file" name="file" type="file" accept=".csv" required style="width: 100%; padding: 10px; background: rgba(15, 23, 42, 0.7); color: #f8fafc; border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 6px;">
-            </div>
-            
-            <div style="background: rgba(59, 130, 246, 0.1); border-left: 4px solid #3b82f6; padding: 12px; border-radius: 4px; font-size: 0.875rem; color: #cbd5e1;">
-                <strong>Tip:</strong> Download the sample CSV from the export to see the correct format. Start date should be in YYYY-MM-DD format.
-            </div>
-            
-            <div style="display: flex; gap: 12px;">
-                <button class="button" type="submit">Import</button>
-                <button class="button secondary" type="button" onclick="closeImportModal()">Cancel</button>
-            </div>
-        </form>
-        
-        <div id="import-status" style="margin-top: 16px; padding: 12px; border-radius: 6px; display: none;"></div>
-    </div>
-</div>
-
-<script>
-function openImportModal() {
-    document.getElementById('import-modal').style.display = 'flex';
-    document.getElementById('import-status').style.display = 'none';
-    document.getElementById('import-form').reset();
-}
-
-function closeImportModal() {
-    document.getElementById('import-modal').style.display = 'none';
-}
-
-// Close modal when clicking outside
-document.getElementById('import-modal').addEventListener('click', function(e) {
-    if (e.target === this) {
-        closeImportModal();
-    }
-});
-
-// Handle form submission
-document.getElementById('import-form').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    
-    const fileInput = document.getElementById('csv-file');
-    const statusDiv = document.getElementById('import-status');
-    
-    if (!fileInput.files.length) {
-        statusDiv.style.display = 'block';
-        statusDiv.style.background = 'rgba(239, 68, 68, 0.1)';
-        statusDiv.style.color = '#fca5a5';
-        statusDiv.style.borderLeft = '4px solid #ef4444';
-        statusDiv.innerHTML = '<strong>Error:</strong> Please select a file';
-        return;
-    }
-    
-    const formData = new FormData(this);
-    const submitButton = this.querySelector('button[type="submit"]');
-    submitButton.disabled = true;
-    submitButton.textContent = 'Importing...';
-    
-    try {
-        const response = await fetch('/models/import', {
-            method: 'POST',
-            body: formData
-        });
-        
-        if (response.ok) {
-            statusDiv.style.display = 'block';
-            statusDiv.style.background = 'rgba(34, 197, 94, 0.1)';
-            statusDiv.style.color = '#86efac';
-            statusDiv.style.borderLeft = '4px solid #22c55e';
-            statusDiv.innerHTML = '<strong>Success!</strong> Models imported successfully. Refreshing page...';
-            
-            setTimeout(() => {
-                location.reload();
-            }, 1500);
-        } else {
-            const error = await response.text();
-            statusDiv.style.display = 'block';
-            statusDiv.style.background = 'rgba(239, 68, 68, 0.1)';
-            statusDiv.style.color = '#fca5a5';
-            statusDiv.style.borderLeft = '4px solid #ef4444';
-            statusDiv.innerHTML = `<strong>Error:</strong> ${error}`;
-            submitButton.disabled = false;
-            submitButton.textContent = 'Import';
-        }
-    } catch (err) {
-        statusDiv.style.display = 'block';
-        statusDiv.style.background = 'rgba(239, 68, 68, 0.1)';
-        statusDiv.style.color = '#fca5a5';
-        statusDiv.style.borderLeft = '4px solid #ef4444';
-        statusDiv.innerHTML = `<strong>Error:</strong> ${err.message}`;
-        submitButton.disabled = false;
-        submitButton.textContent = 'Import';
-    }
-});
-</script>
 {% endblock %}
