@@ -36,6 +36,7 @@ class Model(Base):
     validations: Mapped[list["ValidationIssue"]] = relationship(
         back_populates="model", cascade="all, delete-orphan"
     )
+    payments: Mapped[list["Payment"]] = relationship(back_populates="model", cascade="all, delete-orphan")
 
     __table_args__ = (
         CheckConstraint("amount_monthly > 0", name="ck_models_amount_positive"),
@@ -93,6 +94,25 @@ class ValidationIssue(Base):
 
     schedule_run: Mapped[ScheduleRun] = relationship(back_populates="validations")
     model: Mapped[Model] = relationship(back_populates="validations")
+
+
+class Payment(Base):
+    __tablename__ = "payments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    model_id: Mapped[int] = mapped_column(ForeignKey("models.id", ondelete="CASCADE"), nullable=False)
+    payment_date: Mapped[date] = mapped_column(Date, nullable=False)
+    payment_to: Mapped[str] = mapped_column(String(100), nullable=False)
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    notes: Mapped[str] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+    model: Mapped[Model] = relationship(back_populates="payments")
+
+    __table_args__ = (
+        CheckConstraint("amount > 0", name="ck_payments_amount_positive"),
+        Index("idx_model_payment_date", "model_id", "payment_date"),
+    )
 
 
 class LoginAttempt(Base):

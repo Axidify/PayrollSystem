@@ -11,7 +11,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.payroll import ModelRecord, ValidationMessage
-from app.models import Model, Payout, ScheduleRun, ValidationIssue
+from app.models import Model, Payout, ScheduleRun, ValidationIssue, Payment
 from app.schemas import ModelCreate, ModelUpdate
 
 
@@ -422,3 +422,59 @@ def top_paid_models(db: Session, limit: int = 5) -> list[tuple[Model, Decimal]]:
 def recent_validation_issues(db: Session, limit: int = 5) -> Sequence[ValidationIssue]:
     stmt = select(ValidationIssue).order_by(ValidationIssue.id.desc()).limit(limit)
     return db.execute(stmt).scalars().all()
+
+
+# Payment tracking functions
+
+def list_payments_for_model(db: Session, model_id: int, limit: int | None = None) -> Sequence:
+    """Get all payments for a model, ordered by date descending."""
+    from app.models import Payment
+    stmt = select(Payment).where(Payment.model_id == model_id).order_by(Payment.payment_date.desc())
+    if limit:
+        stmt = stmt.limit(limit)
+    return db.execute(stmt).scalars().all()
+
+
+def create_payment(
+    db: Session,
+    model_id: int,
+    payment_date: date,
+    payment_to: str,
+    amount: Decimal,
+    notes: str | None = None,
+):
+    """Create a new payment record."""
+    from app.models import Payment
+    
+    payment = Payment(
+        model_id=model_id,
+        payment_date=payment_date,
+        payment_to=payment_to,
+        amount=amount,
+        notes=notes,
+    )
+    db.add(payment)
+    db.commit()
+    db.refresh(payment)
+    return payment
+
+
+def delete_payment(db: Session, payment_id: int) -> bool:
+    """Delete a payment record."""
+    from app.models import Payment
+    
+    payment = db.get(Payment, payment_id)
+    if payment:
+        db.delete(payment)
+        db.commit()
+        return True
+    return False
+
+
+def get_total_paid_for_model(db: Session, model_id: int) -> Decimal:
+    """Get total amount paid for a model from payment history."""
+    from app.models import Payment
+    
+    stmt = select(func.coalesce(func.sum(Payment.amount), 0)).where(Payment.model_id == model_id)
+    result = db.execute(stmt).scalar()
+    return Decimal(str(result)) if result else Decimal("0")

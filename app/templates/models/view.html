@@ -84,6 +84,7 @@
     <div class="form-actions">
         {% if user.role == 'admin' %}
         <a class="button" href="/models/{{ model.id }}/edit">Edit Model</a>
+        <button class="button secondary" type="button" onclick="openPaymentImportModal()">Import Payment History</button>
         <form action="/models/{{ model.id }}/delete" method="post" onsubmit="return confirm('Delete this model?');" style="display: inline;">
             <button class="button secondary" type="submit">Delete Model</button>
         </form>
@@ -91,4 +92,146 @@
         <a class="button secondary" href="/models">Back to Roster</a>
     </div>
 </section>
+
+<section class="card" style="max-width: 820px; margin-top: 24px;">
+    <h2>Payment History</h2>
+    
+    {% if payments %}
+    <table class="data-table" style="font-size: 0.95rem;">
+        <thead>
+            <tr>
+                <th>Payment Date</th>
+                <th>Payment To</th>
+                <th>Amount</th>
+                <th>Notes</th>
+                {% if user.role == 'admin' %}<th style="width: 60px;">Actions</th>{% endif %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for payment in payments %}
+            <tr>
+                <td>{{ payment.payment_date.strftime('%m/%d/%Y') }}</td>
+                <td>{{ payment.payment_to }}</td>
+                <td>${{ '%.2f'|format(payment.amount) }}</td>
+                <td style="color: #cbd5e1; font-size: 0.9rem;">{{ payment.notes or '—' }}</td>
+                {% if user.role == 'admin' %}
+                <td>
+                    <form action="/models/{{ model.id }}/payments/{{ payment.id }}/delete" method="post" onsubmit="return confirm('Delete this payment?');" style="display: inline;">
+                        <button class="link-button" type="submit" style="color: #ef4444;">Delete</button>
+                    </form>
+                </td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div style="color: #cbd5e1; padding: 16px; text-align: center; background: rgba(51, 65, 85, 0.2); border-radius: 6px;">
+        No payment history recorded yet.
+    </div>
+    {% endif %}
+</section>
+
+<!-- Payment Import Modal -->
+<div id="payment-import-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+    <div style="background: #0f172a; border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 16px; padding: 32px; max-width: 500px; width: 90%;">
+        <h2 style="margin-top: 0; color: #f8fafc; margin-bottom: 16px;">Import Payment History</h2>
+        <p style="color: #cbd5e1; margin-bottom: 20px;">Upload a CSV file with payment records. Columns: payment_date, payment_to, amount, notes (optional)</p>
+        
+        <form id="payment-import-form" method="post" action="/models/{{ model.id }}/payments/import" enctype="multipart/form-data" style="display: flex; flex-direction: column; gap: 16px;">
+            <div>
+                <label for="payment-csv-file" style="display: block; color: #cbd5e1; font-weight: 600; margin-bottom: 8px;">Select CSV File</label>
+                <input id="payment-csv-file" name="file" type="file" accept=".csv" required style="width: 100%; padding: 10px; background: rgba(15, 23, 42, 0.7); color: #f8fafc; border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 6px;">
+            </div>
+            
+            <div style="background: rgba(59, 130, 246, 0.1); border-left: 4px solid #3b82f6; padding: 12px; border-radius: 4px; font-size: 0.875rem; color: #cbd5e1;">
+                <strong>Format:</strong> payment_date (YYYY-MM-DD), payment_to, amount, notes (optional)
+            </div>
+            
+            <div style="display: flex; gap: 12px;">
+                <button class="button" type="submit">Import</button>
+                <button class="button secondary" type="button" onclick="closePaymentImportModal()">Cancel</button>
+            </div>
+        </form>
+        
+        <div id="payment-import-status" style="margin-top: 16px; padding: 12px; border-radius: 6px; display: none;"></div>
+    </div>
+</div>
+
+<script>
+function openPaymentImportModal() {
+    document.getElementById('payment-import-modal').style.display = 'flex';
+    document.getElementById('payment-import-status').style.display = 'none';
+    document.getElementById('payment-import-form').reset();
+}
+
+function closePaymentImportModal() {
+    document.getElementById('payment-import-modal').style.display = 'none';
+}
+
+// Close modal when clicking outside
+document.getElementById('payment-import-modal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closePaymentImportModal();
+    }
+});
+
+// Handle form submission
+document.getElementById('payment-import-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const fileInput = document.getElementById('payment-csv-file');
+    const statusDiv = document.getElementById('payment-import-status');
+    
+    if (!fileInput.files.length) {
+        statusDiv.style.display = 'block';
+        statusDiv.style.background = 'rgba(239, 68, 68, 0.1)';
+        statusDiv.style.color = '#fca5a5';
+        statusDiv.style.borderLeft = '4px solid #ef4444';
+        statusDiv.innerHTML = '<strong>Error:</strong> Please select a file';
+        return;
+    }
+    
+    const formData = new FormData(this);
+    const submitButton = this.querySelector('button[type="submit"]');
+    submitButton.disabled = true;
+    submitButton.textContent = 'Importing...';
+    
+    try {
+        const response = await fetch(this.action, {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (response.ok) {
+            statusDiv.style.display = 'block';
+            statusDiv.style.background = 'rgba(34, 197, 94, 0.1)';
+            statusDiv.style.color = '#86efac';
+            statusDiv.style.borderLeft = '4px solid #22c55e';
+            statusDiv.innerHTML = '<strong>Success!</strong> Payments imported. Refreshing page...';
+            
+            setTimeout(() => {
+                location.reload();
+            }, 1500);
+        } else {
+            const error = await response.text();
+            statusDiv.style.display = 'block';
+            statusDiv.style.background = 'rgba(239, 68, 68, 0.1)';
+            statusDiv.style.color = '#fca5a5';
+            statusDiv.style.borderLeft = '4px solid #ef4444';
+            statusDiv.innerHTML = `<strong>Error:</strong> ${error}`;
+            submitButton.disabled = false;
+            submitButton.textContent = 'Import';
+        }
+    } catch (err) {
+        statusDiv.style.display = 'block';
+        statusDiv.style.background = 'rgba(239, 68, 68, 0.1)';
+        statusDiv.style.color = '#fca5a5';
+        statusDiv.style.borderLeft = '4px solid #ef4444';
+        statusDiv.innerHTML = `<strong>Error:</strong> ${err.message}`;
+        submitButton.disabled = false;
+        submitButton.textContent = 'Import';
+    }
+});
+</script>
 {% endblock %}
