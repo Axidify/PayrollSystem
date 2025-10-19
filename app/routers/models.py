@@ -18,7 +18,7 @@ from app import crud
 from app.auth import User
 from app.database import get_session
 from app.dependencies import templates
-from app.models import FREQUENCY_ENUM, STATUS_ENUM
+from app.models import FREQUENCY_ENUM, STATUS_ENUM, Payout
 from app.routers.auth import get_current_user, get_admin_user
 from app.schemas import ModelCreate, ModelUpdate
 
@@ -409,8 +409,11 @@ async def import_models_csv(
         # No duplicates - proceed with import
         imported_count = 0
         for row in valid_rows:
-            # Check if code already exists (for new imports)
-            if not crud.get_model_by_code(db, row['code']):
+            # Check if code already exists
+            existing_model = crud.get_model_by_code(db, row['code'])
+            
+            if not existing_model:
+                # Create new model
                 model_data = ModelCreate(
                     status=row['status'],
                     code=row['code'],
@@ -422,8 +425,28 @@ async def import_models_csv(
                     amount_monthly=row['amount_monthly'],
                     crypto_wallet=row['crypto_wallet'],
                 )
-                crud.create_model(db, model_data)
+                created_model = crud.create_model(db, model_data)
+                model_id = created_model.id
+            else:
+                # Use existing model
+                model_id = existing_model.id
+            
+            # Create payout record if payment data exists
+            if row['payout_data']:
+                payout = Payout(
+                    model_id=model_id,
+                    pay_date=row['payout_data']['pay_date'],
+                    amount=row['payout_data']['amount'],
+                    status=row['payout_data']['status'],
+                    notes=row['payout_data']['notes'],
+                )
+                db.add(payout)
+            
+            if not existing_model:
                 imported_count += 1
+        
+        # Commit all changes
+        db.commit()
         
         # Return redirect with success message
         message = f"Successfully imported {imported_count} model{'s' if imported_count != 1 else ''}"
