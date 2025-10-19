@@ -96,6 +96,8 @@ def _build_model_list_context(
     }
     if extra:
         context.update(extra)
+    context.setdefault("import_auto_runs", True)
+    context.setdefault("import_update_existing", True)
     return context
 
 
@@ -390,6 +392,7 @@ async def import_models_excel(
 
         auto_generate_runs = auto_runs is not None
         extra_context["import_auto_runs"] = auto_generate_runs
+        extra_context["import_update_existing"] = update_existing is not None
 
         run_id: int | None = None
         create_schedule_run = False

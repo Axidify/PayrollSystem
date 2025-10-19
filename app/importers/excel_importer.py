@@ -19,6 +19,7 @@ from app.models import (
     Model,
     Payout,
     ScheduleRun,
+    ValidationIssue,
 )
 
 MODEL_COLUMNS: dict[str, dict[str, Any]] = {
@@ -321,6 +322,21 @@ def ensure_schedule_run(session: Session, options: RunOptions) -> ScheduleRun:
         raise ValueError("target_year and target_month are required for new schedule runs")
     if not 1 <= int(options.target_month) <= 12:
         raise ValueError("target_month must be between 1 and 12")
+    existing_run = (
+        session.query(ScheduleRun)
+        .filter(
+            ScheduleRun.target_year == int(options.target_year),
+            ScheduleRun.target_month == int(options.target_month),
+        )
+        .order_by(ScheduleRun.created_at.desc())
+        .first()
+    )
+    if existing_run:
+        existing_run.currency = str(options.currency).upper()
+        existing_run.export_path = str(options.export_dir)
+        existing_run.include_inactive = False
+        session.flush()
+        return existing_run
     run = ScheduleRun(
         target_year=int(options.target_year),
         target_month=int(options.target_month),
@@ -343,6 +359,10 @@ def import_payouts(
 ) -> tuple[int, list[str]]:
     created = 0
     errors: list[str] = []
+    # Always reset existing payouts and validation issues before re-importing
+    session.query(Payout).filter(Payout.schedule_run_id == run.id).delete()
+    session.query(ValidationIssue).filter(ValidationIssue.schedule_run_id == run.id).delete()
+    session.flush()
     normalized = normalize_columns(df, PAYOUT_COLUMNS, "payout")
     records = normalized.dropna(how="all")
     models_by_code = {m.code.lower(): m for m in session.query(Model).all()}

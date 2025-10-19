@@ -88,6 +88,19 @@ def create_schedule_run(
     summary: dict,
     export_path: str,
 ) -> ScheduleRun:
+    existing = (
+        db.query(ScheduleRun)
+        .filter(
+            ScheduleRun.target_year == target_year,
+            ScheduleRun.target_month == target_month,
+        )
+        .order_by(ScheduleRun.created_at.desc())
+        .first()
+    )
+    if existing:
+        raise ValueError(
+            f"A schedule run already exists for {target_year:04d}-{target_month:02d} (id {existing.id})."
+        )
     run = ScheduleRun(
         target_year=target_year,
         target_month=target_month,
