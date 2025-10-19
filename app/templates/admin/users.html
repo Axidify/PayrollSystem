@@ -107,6 +107,23 @@
     .btn-delete:hover {
         background-color: #991b1b;
     }
+    .btn-unlock {
+        background-color: #8b5cf6;
+        color: white;
+    }
+    .btn-unlock:hover {
+        background-color: #7c3aed;
+    }
+    .locked-badge {
+        display: inline-block;
+        padding: 5px 10px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: bold;
+        background-color: rgba(239, 68, 68, 0.5);
+        color: #fca5a5;
+        margin-left: 10px;
+    }
     .user-info {
         color: #cbd5e1;
         font-size: 14px;
@@ -128,6 +145,7 @@
             <tr>
                 <th>Username</th>
                 <th>Role</th>
+                <th>Status</th>
                 <th>Created</th>
                 <th>Actions</th>
             </tr>
@@ -141,6 +159,13 @@
                         {{ user_item.role.upper() }}
                     </span>
                 </td>
+                <td>
+                    {% if user_item.is_locked %}
+                    <span class="locked-badge">🔒 LOCKED</span>
+                    {% else %}
+                    <span style="color: #10b981;">Active</span>
+                    {% endif %}
+                </td>
                 <td>{{ user_item.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
                 <td>
                     <div class="actions">
@@ -149,6 +174,11 @@
                             <input type="password" name="new_password" placeholder="New password" required style="padding: 8px; border: 1px solid #ddd; border-radius: 3px;">
                             <button type="submit" class="btn btn-reset">Reset Password</button>
                         </form>
+                        {% if user_item.is_locked %}
+                        <form method="post" action="/admin/users/{{ user_item.id }}/unlock" style="display: inline;" onsubmit="return confirm('Unlock this account?');">
+                            <button type="submit" class="btn btn-unlock">Unlock Account</button>
+                        </form>
+                        {% endif %}
                         {% if user_item.id != user.id %}
                         <form method="post" action="/admin/users/{{ user_item.id }}/delete" style="display: inline;" onsubmit="return confirm('Are you sure?');">
                             <button type="submit" class="btn btn-delete">Delete</button>

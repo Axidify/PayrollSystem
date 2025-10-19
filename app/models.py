@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, CheckConstraint, Column, Date, DateTime, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import Boolean, CheckConstraint, Column, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -93,3 +93,18 @@ class ValidationIssue(Base):
 
     schedule_run: Mapped[ScheduleRun] = relationship(back_populates="validations")
     model: Mapped[Model] = relationship(back_populates="validations")
+
+
+class LoginAttempt(Base):
+    __tablename__ = "login_attempts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    username: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    success: Mapped[bool] = mapped_column(default=False, nullable=False)
+    ip_address: Mapped[str] = mapped_column(String(50), nullable=True)
+    user_agent: Mapped[str] = mapped_column(Text, nullable=True)
+    attempted_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+    __table_args__ = (
+        Index("idx_failed_attempts", "username", "success", "attempted_at"),
+    )

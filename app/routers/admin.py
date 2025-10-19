@@ -10,6 +10,7 @@ from app.auth import User
 from app.database import get_session
 from app.dependencies import templates
 from app.routers.auth import get_current_user, get_admin_user
+from app.security import unlock_account
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -190,6 +191,26 @@ def reset_user_password(
     
     user.password_hash = User.hash_password(new_password)
     db.commit()
+    return RedirectResponse(url="/admin/users", status_code=303)
+
+
+@router.post("/users/{user_id}/unlock")
+def unlock_user_account(
+    user_id: int,
+    db: Session = Depends(get_session),
+    admin: User = Depends(get_admin_user),
+):
+    """Unlock a locked user account (admin only)."""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Check if account is actually locked
+    if not user.is_locked:
+        raise HTTPException(status_code=400, detail="Account is not locked")
+    
+    # Unlock the account
+    unlock_account(db, user.username)
     return RedirectResponse(url="/admin/users", status_code=303)
 
 

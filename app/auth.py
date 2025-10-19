@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, DateTime
 from sqlalchemy.orm import Mapped, mapped_column
 from app.database import Base
 import bcrypt
@@ -18,6 +18,10 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[str] = mapped_column(String(50), default="user", nullable=False)  # "admin" or "user"
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, nullable=False)
+    is_locked: Mapped[bool] = mapped_column(default=False, nullable=False)
+    locked_until: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    failed_login_count: Mapped[int] = mapped_column(default=0, nullable=False)
+    last_failed_login: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     
     @staticmethod
     def hash_password(password: str) -> str:

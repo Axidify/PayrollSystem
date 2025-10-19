@@ -75,6 +75,16 @@
             margin-bottom: 20px;
             text-align: center;
         }
+        .warning-message {
+            color: #8a6d3b;
+            background-color: #fcf8e3;
+            border: 1px solid #faebcc;
+            padding: 12px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: bold;
+        }
         .info-text {
             text-align: center;
             color: #999;
@@ -89,6 +99,12 @@
         
         {% if error %}
         <div class="error-message">{{ error }}</div>
+        {% endif %}
+        
+        {% if attempts_remaining is defined and attempts_remaining > 0 and attempts_remaining < 5 %}
+        <div class="warning-message">
+            ⚠️ {{ attempts_remaining }} attempt{{ 's' if attempts_remaining != 1 else '' }} remaining before account lockout
+        </div>
         {% endif %}
         
         <form method="post" action="/login">
