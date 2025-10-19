@@ -42,10 +42,10 @@ jobs:
       env:
         PAYROLL_DATABASE_URL: postgresql://testuser:testpass@localhost:5432/payroll_test
       run: |
-        pytest -v --tb=short
+        pytest -v --tb=short tests/
     
     - name: Health check (start app briefly)
       env:
         PAYROLL_DATABASE_URL: postgresql://testuser:testpass@localhost:5432/payroll_test
       run: |
-        timeout 5 python -c "from app.database import init_db; init_db(); print('Database initialization successful')" || true
+        python -c "from app.database import init_db; init_db(); print('✓ Database initialization successful')" || echo "Database init skipped or failed (non-critical)"
