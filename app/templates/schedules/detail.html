@@ -239,53 +239,61 @@ let sortDirection = {};
 function sortTable(columnIndex) {
     const table = document.querySelector('.data-table');
     const tbody = table.querySelector('tbody');
-    const rows = Array.from(tbody.querySelectorAll('tr'));
-    
+    let rows = Array.from(tbody.querySelectorAll('tr'));
+
     // Remove empty state row if present
     const emptyStateRow = rows.find(r => r.querySelector('.empty-state'));
-    if (emptyStateRow) rows.splice(rows.indexOf(emptyStateRow), 1);
-    
+    if (emptyStateRow) rows = rows.filter(r => !r.querySelector('.empty-state'));
+
     if (rows.length === 0) return;
-    
-    // Determine sort direction
-    const isAscending = sortDirection[columnIndex] !== true;
-    sortDirection[columnIndex] = !isAscending;
-    
+
+    // Toggle sort direction: if previously true (ascending) then next is descending, and vice-versa.
+    const prev = sortDirection[columnIndex] === true;
+    const isAscending = !prev;
+    sortDirection = {}; // reset others
+    sortDirection[columnIndex] = isAscending;
+
     // Sort rows
     rows.sort((rowA, rowB) => {
-        const cellA = rowA.cells[columnIndex].textContent.trim();
-        const cellB = rowB.cells[columnIndex].textContent.trim();
-        
-        // Try numeric sort first (for Amount, Pay Date)
-        const numA = parseFloat(cellA.replace(/[^\d.]/g, ''));
-        const numB = parseFloat(cellB.replace(/[^\d.]/g, ''));
-        
+        const cellA = (rowA.cells[columnIndex] && rowA.cells[columnIndex].textContent || '').trim();
+        const cellB = (rowB.cells[columnIndex] && rowB.cells[columnIndex].textContent || '').trim();
+
+        // Date sort (MM/DD/YYYY format) - handle first so dates containing numbers don't get numeric sort
+        if (columnIndex === 1) {
+            const parse = s => {
+                const parts = s.split('/');
+                if (parts.length === 3) return new Date(`${parts[2]}-${parts[0].padStart(2,'0')}-${parts[1].padStart(2,'0')}`);
+                return new Date(s);
+            };
+            const dateA = parse(cellA);
+            const dateB = parse(cellB);
+            return isAscending ? dateA - dateB : dateB - dateA;
+        }
+
+        // Try numeric sort (Amount)
+        const numA = parseFloat(cellA.replace(/[^\d.-]/g, ''));
+        const numB = parseFloat(cellB.replace(/[^\d.-]/g, ''));
         if (!isNaN(numA) && !isNaN(numB)) {
             return isAscending ? numA - numB : numB - numA;
         }
-        
-        // Date sort (MM/DD/YYYY format)
-        if (columnIndex === 1) {
-            const dateA = new Date(cellA.split('/').reverse().join('-'));
-            const dateB = new Date(cellB.split('/').reverse().join('-'));
-            return isAscending ? dateA - dateB : dateB - dateA;
-        }
-        
+
         // String sort
-        return isAscending 
-            ? cellA.localeCompare(cellB) 
-            : cellB.localeCompare(cellA);
+        return isAscending ? cellA.localeCompare(cellB) : cellB.localeCompare(cellA);
     });
-    
+
     // Reappend sorted rows
     rows.forEach(row => tbody.appendChild(row));
-    
+
     // Update header indicators
     document.querySelectorAll('.data-table th').forEach((th, idx) => {
+        // Base label is header text without arrows
+        const base = th.textContent.replace(/\s*[▲▼]\s*$/, '').trim();
         if (idx === columnIndex) {
-            th.textContent = th.textContent.replace(' ▼', '').replace(' ▲', '') + (isAscending ? ' ▼' : ' ▲');
+            th.textContent = base + (isAscending ? ' ▲' : ' ▼');
         } else if (idx > 0 && idx < 9) {
-            th.textContent = th.textContent.replace(' ▼', '').replace(' ▲', '') + ' ▼';
+            th.textContent = base + ' ▼';
+        } else {
+            th.textContent = base;
         }
     });
 }
