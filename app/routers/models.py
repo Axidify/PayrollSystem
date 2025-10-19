@@ -235,11 +235,11 @@ async def import_models_csv(
         if not reader.fieldnames:
             raise HTTPException(status_code=400, detail="CSV file is empty")
         
-        # Normalize field names
+        # Normalize field names - map to exact column names from export
         required_fields = {'status', 'code', 'real_name', 'working_name', 'start_date', 
-                          'payment_method', 'payment_frequency', 'amount_monthly'}
-        optional_payment_fields = {'pay_date', 'payment_amount', 'payment_status'}
-        field_names_lower = {f.lower(): f for f in reader.fieldnames}
+                          'payment_method', 'payment_frequency', 'monthly_amount', 'crypto_wallet'}
+        optional_payment_fields = {'pay_date', 'amount', 'status (payment)'}
+        field_names_lower = {f.lower().replace(' ', '_').replace('(', '').replace(')', ''): f for f in reader.fieldnames}
         
         # Check for required fields
         missing = required_fields - set(field_names_lower.keys())
@@ -259,16 +259,16 @@ async def import_models_csv(
         
         for row_num, row in enumerate(reader, start=2):
             try:
-                # Extract model values (handle both lowercase and original case)
-                code = row.get('code') or row.get('Code')
-                status_val = row.get('status') or row.get('Status')
-                real_name = row.get('real_name') or row.get('Real Name')
-                working_name = row.get('working_name') or row.get('Working Name')
-                start_date_str = row.get('start_date') or row.get('Start Date')
-                payment_method = row.get('payment_method') or row.get('Payment Method')
-                payment_frequency = row.get('payment_frequency') or row.get('Payment Frequency')
-                amount_monthly_str = row.get('amount_monthly') or row.get('Amount Monthly')
-                crypto_wallet = row.get('crypto_wallet') or row.get('Crypto Wallet')
+                # Extract model values - handle case and space variations
+                code = (row.get('code') or row.get('Code') or '').strip()
+                status_val = (row.get('status') or row.get('Status') or '').strip()
+                real_name = (row.get('real_name') or row.get('Real Name') or '').strip()
+                working_name = (row.get('working_name') or row.get('Working Name') or '').strip()
+                start_date_str = (row.get('start_date') or row.get('Start Date') or '').strip()
+                payment_method = (row.get('payment_method') or row.get('Payment Method') or '').strip()
+                payment_frequency = (row.get('payment_frequency') or row.get('Payment Frequency') or '').strip()
+                amount_monthly_str = (row.get('monthly_amount') or row.get('Monthly Amount') or '').strip()
+                crypto_wallet = (row.get('crypto_wallet') or row.get('Crypto Wallet') or row.get('Crypto Wa') or '').strip()
                 
                 # Validate required fields
                 if not all([code, status_val, real_name, working_name, start_date_str, 
@@ -310,10 +310,10 @@ async def import_models_csv(
                 payout_data = None
                 if has_payment_data:
                     try:
-                        pay_date_str = row.get('pay_date') or row.get('Pay Date')
-                        payment_amount_str = row.get('payment_amount') or row.get('Payment Amount')
-                        payment_status_str = row.get('payment_status') or row.get('Payment Status')
-                        payment_notes_str = row.get('payment_notes') or row.get('Payment Notes')
+                        pay_date_str = (row.get('pay_date') or row.get('Pay Date') or '').strip()
+                        payment_amount_str = (row.get('amount') or row.get('Amount') or '').strip()
+                        payment_status_str = (row.get('status_payment') or row.get('Status (Payment)') or row.get('Status Payment') or '').strip()
+                        payment_notes_str = (row.get('notes') or row.get('Notes') or '').strip()
                         
                         if pay_date_str and payment_amount_str and payment_status_str:
                             # Parse payment date
