@@ -253,7 +253,8 @@ async def import_models_csv(
         # Normalize field names - map to exact column names from export
         required_fields = {'status', 'code', 'real_name', 'working_name', 'start_date', 
                           'payment_method', 'payment_frequency', 'monthly_amount', 'crypto_wallet'}
-        optional_payment_fields = {'pay_date', 'amount', 'status (payment)'}
+        optional_payment_fields = {'pay_date', 'amount', 'status_payment'}  # Note: parentheses removed
+        # Normalize: lowercase, replace spaces and special chars with underscores
         field_names_lower = {f.lower().replace(' ', '_').replace('(', '').replace(')', ''): f for f in reader.fieldnames}
         
         # Check for required fields
