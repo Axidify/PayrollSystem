@@ -21,7 +21,7 @@ def list_users(
     admin: User = Depends(get_admin_user),
 ):
     """List all users (admin only)."""
-    users = db.query(User).filter(User.is_active == True).all()
+    users = db.query(User).all()
     return templates.TemplateResponse(
         "admin/users.html",
         {
@@ -58,8 +58,8 @@ def create_user(
     admin: User = Depends(get_admin_user),
 ):
     """Create a new user (admin only)."""
-    # Check if username already exists (only for active users)
-    existing = db.query(User).filter(User.username == username, User.is_active == True).first()
+    # Check if username already exists
+    existing = db.query(User).filter(User.username == username).first()
     if existing:
         return templates.TemplateResponse(
             "admin/user_form.html",
@@ -199,7 +199,7 @@ def delete_user(
     db: Session = Depends(get_session),
     admin: User = Depends(get_admin_user),
 ):
-    """Soft-delete user (admin only)."""
+    """Delete user (admin only)."""
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -208,6 +208,6 @@ def delete_user(
     if user.id == admin.id:
         raise HTTPException(status_code=400, detail="Cannot delete your own account")
     
-    user.is_active = False
+    db.delete(user)
     db.commit()
     return RedirectResponse(url="/admin/users", status_code=303)

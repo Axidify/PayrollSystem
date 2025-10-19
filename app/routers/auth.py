@@ -28,7 +28,7 @@ def login(
 ):
     """Handle login form submission."""
     # Find user
-    user = db.query(User).filter(User.username == username, User.is_active == True).first()
+    user = db.query(User).filter(User.username == username).first()
     
     if not user or not user.verify_password(password):
         # Return login page with error
@@ -74,7 +74,7 @@ def get_current_user(request: Request, db: Session = Depends(get_session)) -> Us
     except (ValueError, TypeError):
         raise HTTPException(status_code=401, detail="Invalid session")
     
-    user = db.query(User).filter(User.id == user_id, User.is_active == True).first()
+    user = db.query(User).filter(User.id == user_id).first()
     
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
