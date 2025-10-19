@@ -13,26 +13,77 @@
     </div>
 </section>
 
+{% if has_runs %}
 <section class="card" style="margin-bottom: 24px;">
-    <h2>History</h2>
-    <form class="filter-bar" method="get" style="margin-bottom: 18px;">
+    <form class="filter-bar" method="get">
         <div class="filter-group">
-            <label for="filter-month">Month</label>
-            <input id="filter-month" name="month" type="month" value="{{ filters.month }}" />
+            <label for="filter-month">Payroll Month</label>
+            <select id="filter-month" name="month">
+                {% for option in month_options %}
+                <option value="{{ option.value }}" {% if option.is_selected %}selected{% endif %}>
+                    {{ option.label }}{% if option.run_count %} · {{ option.run_count }} run{% if option.run_count != 1 %}s{% endif %}{% endif %}
+                </option>
+                {% endfor %}
+            </select>
         </div>
         <div class="filter-actions">
             <button class="button" type="submit">Apply</button>
-            <a class="button secondary" href="/schedules">Reset</a>
+            <a class="button secondary" href="/schedules">Latest Month</a>
         </div>
     </form>
+    {% if selected_month_label %}
+    <p style="margin-top: 12px; color: var(--text-subtle, #555);">
+        Showing runs for <strong>{{ selected_month_label }}</strong>
+        ({{ monthly_summary.run_count }} run{% if monthly_summary.run_count != 1 %}s{% endif %}).
+    </p>
+    {% endif %}
+</section>
+
+<section class="card-grid columns-4" style="margin-bottom: 24px;">
+    <div class="card metric">
+        <div class="metric-title">Total Payout</div>
+        <div class="metric-value">${{ '%.2f'|format(monthly_summary.total_payout or 0) }}</div>
+    </div>
+    <div class="card metric">
+        <div class="metric-title">Paid This Month</div>
+        <div class="metric-value">${{ '%.2f'|format(monthly_summary.paid_total or 0) }}</div>
+    </div>
+    <div class="card metric">
+        <div class="metric-title">Outstanding</div>
+        <div class="metric-value">${{ '%.2f'|format(monthly_summary.unpaid_total or 0) }}</div>
+    </div>
+    <div class="card metric">
+        <div class="metric-title">Models Paid</div>
+        <div class="metric-value">{{ monthly_summary.models_paid }}</div>
+    </div>
+</section>
+
+<section class="card" style="margin-top: 24px;">
+    <h2>Payout Mix</h2>
+    {% if monthly_frequency %}
+    <div class="frequency-summary">
+        {% for name, count in monthly_frequency|dictsort %}
+        <span class="tag">{{ name|replace('_', ' ')|title }} · {{ count }}</span>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="empty-state" style="margin: 0;">No payouts recorded for {{ selected_month_label or 'this month' }}.</p>
+    {% endif %}
+</section>
+
+<section class="card" style="margin-top: 24px;">
+    <h2>Payroll Runs</h2>
     <table class="data-table">
         <thead>
             <tr>
+                <th>Run</th>
                 <th>Created</th>
                 <th>Cycle</th>
                 <th>Currency</th>
                 <th>Models Paid</th>
                 <th>Total Payout</th>
+                <th>Paid</th>
+                <th>Outstanding</th>
                 <th>Frequencies</th>
                 <th>Actions</th>
             </tr>
@@ -40,17 +91,22 @@
         <tbody>
             {% for run in runs %}
             <tr>
+                <td>#{{ run.id }}</td>
                 <td>{{ run.created_at.strftime('%m/%d/%Y') }}</td>
                 <td>{{ '%02d/%04d'|format(run.target_month, run.target_year) }}</td>
                 <td>{{ run.currency }}</td>
                 <td>{{ run.summary_models_paid }}</td>
-                <td>{{ '%.2f'|format(run.summary_total_payout) }}</td>
+                <td>${{ '%.2f'|format(run.summary_total_payout or 0) }}</td>
+                <td>${{ '%.2f'|format(run.paid_total or 0) }}</td>
+                <td>${{ '%.2f'|format(run.unpaid_total or 0) }}</td>
                 <td>
-                    {% for name, count in run.frequency_counts.items() %}
-                        {{ name }}: {{ count }}{% if not loop.last %}, {% endif %}
+                    {% if run.frequency_counts %}
+                        {% for name, count in run.frequency_counts|dictsort %}
+                            {{ name|replace('_', ' ')|title }}: {{ count }}{% if not loop.last %}, {% endif %}
+                        {% endfor %}
                     {% else %}
                         None
-                    {% endfor %}
+                    {% endif %}
                 </td>
                 <td class="actions">
                     <a class="link-button" href="/schedules/{{ run.id }}">Open</a>
@@ -63,10 +119,19 @@
             </tr>
             {% else %}
             <tr>
-                <td class="empty-state" colspan="7">Run payroll to generate your first schedule.</td>
+                <td class="empty-state" colspan="10">No runs scheduled for {{ selected_month_label or 'the selected month' }}.</td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
 </section>
+{% else %}
+<section class="card">
+    <h2>No payroll runs yet</h2>
+    <p class="empty-state" style="margin: 0;">Run your first payroll to populate this view.</p>
+    {% if user.role == 'admin' %}
+    <a class="button" href="/schedules/new" style="margin-top: 16px; display: inline-block;">Run Payroll</a>
+    {% endif %}
+</section>
+{% endif %}
 {% endblock %}

@@ -6,6 +6,7 @@ import csv
 import io
 import json
 from datetime import date, datetime
+from decimal import Decimal
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
@@ -33,36 +34,113 @@ def list_runs(
     user: User = Depends(get_current_user),
 ):
     normalized_month = month.strip() if month else ""
-    year_filter: int | None = None
-    month_filter: int | None = None
+    month_candidate: tuple[int, int] | None = None
 
     if normalized_month:
         try:
             year_str, month_str = normalized_month.split("-")
-            year_filter = int(year_str)
-            month_filter = int(month_str)
-        except ValueError:
+            year_value = int(year_str)
+            month_value = int(month_str)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail="Month must be in YYYY-MM format.") from exc
+        if not 1 <= month_value <= 12:
             raise HTTPException(status_code=400, detail="Month must be in YYYY-MM format.")
+        month_candidate = (year_value, month_value)
 
-    runs = crud.list_schedule_runs(db, target_year=year_filter, target_month=month_filter)
-    for run in runs:
+    all_runs = crud.list_schedule_runs(db)
+
+    grouped_runs: dict[tuple[int, int], list] = {}
+    for run in all_runs:
         try:
             run.frequency_counts = json.loads(run.summary_frequency_counts)
         except json.JSONDecodeError:
             run.frequency_counts = {}
-        # Recalculate models_paid dynamically to reflect actual paid status in database
-        # (the stored summary_models_paid counts all scheduled models, not just paid ones)
+
         summary = crud.run_payment_summary(db, run.id)
         run.summary_models_paid = summary.get("paid_models", 0)
+        run.paid_total = summary.get("paid_total", Decimal("0"))
+        run.unpaid_total = summary.get("unpaid_total", Decimal("0"))
+
+        key = (run.target_year, run.target_month)
+        grouped_runs.setdefault(key, []).append(run)
+
+    sorted_keys = sorted(grouped_runs.keys(), reverse=True)
+
+    selected_key = None
+    if month_candidate and month_candidate in grouped_runs:
+        selected_key = month_candidate
+    elif month_candidate and month_candidate not in grouped_runs:
+        selected_key = month_candidate
+    elif sorted_keys:
+        selected_key = sorted_keys[0]
+
+    zero = Decimal("0")
+
+    selected_runs = grouped_runs.get(selected_key, []) if selected_key else []
+    monthly_frequency: dict[str, int] = {}
+    for run in selected_runs:
+        for name, count in run.frequency_counts.items():
+            try:
+                numeric = int(count)
+            except (TypeError, ValueError):
+                numeric = 0
+            monthly_frequency[name] = monthly_frequency.get(name, 0) + numeric
+
+    total_payout = sum(
+        ((getattr(run, "summary_total_payout", zero) or zero) for run in selected_runs),
+        zero,
+    )
+    paid_total = sum(((getattr(run, "paid_total", zero) or zero) for run in selected_runs), zero)
+    unpaid_total = sum(((getattr(run, "unpaid_total", zero) or zero) for run in selected_runs), zero)
+
+    monthly_summary = {
+        "run_count": len(selected_runs),
+        "models_paid": sum(getattr(run, "summary_models_paid", 0) or 0 for run in selected_runs),
+        "total_payout": total_payout,
+        "paid_total": paid_total,
+        "unpaid_total": unpaid_total,
+    }
+
+    month_options = []
+    for year_value, month_value in sorted_keys:
+        value = f"{year_value:04d}-{month_value:02d}"
+        label = datetime(year_value, month_value, 1).strftime("%B %Y")
+        month_options.append(
+            {
+                "value": value,
+                "label": label,
+                "run_count": len(grouped_runs[(year_value, month_value)]),
+            }
+        )
+
+    if month_candidate and month_candidate not in grouped_runs:
+        value = f"{month_candidate[0]:04d}-{month_candidate[1]:02d}"
+        label = datetime(month_candidate[0], month_candidate[1], 1).strftime("%B %Y")
+        month_options.insert(0, {"value": value, "label": label, "run_count": 0})
+
+    selected_month_value = ""
+    selected_month_label = ""
+    if selected_key:
+        selected_month_value = f"{selected_key[0]:04d}-{selected_key[1]:02d}"
+        selected_month_label = datetime(selected_key[0], selected_key[1], 1).strftime("%B %Y")
+
+    for option in month_options:
+        option["is_selected"] = option["value"] == selected_month_value
+
     return templates.TemplateResponse(
         "schedules/list.html",
         {
             "request": request,
             "user": user,
-            "runs": runs,
+            "runs": selected_runs,
             "filters": {
-                "month": normalized_month,
+                "month": selected_month_value,
             },
+            "month_options": month_options,
+            "selected_month_label": selected_month_label,
+            "monthly_summary": monthly_summary,
+            "monthly_frequency": monthly_frequency,
+            "has_runs": bool(all_runs),
         },
     )
 

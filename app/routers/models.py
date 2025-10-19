@@ -5,9 +5,10 @@ import csv
 import io
 from datetime import date
 from decimal import Decimal
+from typing import Any
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import RedirectResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -18,6 +19,7 @@ from app.dependencies import templates
 from app.models import FREQUENCY_ENUM, STATUS_ENUM, Payout
 from app.routers.auth import get_current_user, get_admin_user
 from app.schemas import ModelCreate, ModelUpdate
+from app.importers.excel_importer import ImportOptions, RunOptions, import_from_excel
 
 router = APIRouter(prefix="/models", tags=["Models"])
 
@@ -35,16 +37,16 @@ def _normalize_filters(
     return code_filter, status_filter, frequency_filter, method_filter
 
 
-@router.get("/")
-def list_models(
+def _build_model_list_context(
     request: Request,
-    code: str | None = None,
-    status: str | None = None,
-    frequency: str | None = None,
-    payment_method: str | None = None,
-    db: Session = Depends(get_session),
-    user: User = Depends(get_current_user),
-):
+    user: User,
+    db: Session,
+    code: str | None,
+    status: str | None,
+    frequency: str | None,
+    payment_method: str | None,
+    extra: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     code_filter, status_filter, frequency_filter, method_filter = _normalize_filters(
         code, status, frequency, payment_method
     )
@@ -75,26 +77,40 @@ def list_models(
     if export_params:
         export_url = f"{export_url}?{urlencode(export_params)}"
 
-    return templates.TemplateResponse(
-        "models/list.html",
-        {
-            "request": request,
-            "user": user,
-            "models": models,
-            "filters": {
-                "code": code_filter or "",
-                "status": status_filter or "",
-                "frequency": frequency_filter or "",
-                "payment_method": method_filter or "",
-            },
-            "payment_methods": payment_methods,
-            "status_options": STATUS_ENUM,
-            "frequency_options": FREQUENCY_ENUM,
-            "totals_map": totals_map,
-            "total_paid_sum": total_paid_sum,
-            "export_url": export_url,
+    context: dict[str, Any] = {
+        "request": request,
+        "user": user,
+        "models": models,
+        "filters": {
+            "code": code_filter or "",
+            "status": status_filter or "",
+            "frequency": frequency_filter or "",
+            "payment_method": method_filter or "",
         },
-    )
+        "payment_methods": payment_methods,
+        "status_options": STATUS_ENUM,
+        "frequency_options": FREQUENCY_ENUM,
+        "totals_map": totals_map,
+        "total_paid_sum": total_paid_sum,
+        "export_url": export_url,
+    }
+    if extra:
+        context.update(extra)
+    return context
+
+
+@router.get("/")
+def list_models(
+    request: Request,
+    code: str | None = None,
+    status: str | None = None,
+    frequency: str | None = None,
+    payment_method: str | None = None,
+    db: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    context = _build_model_list_context(request, user, db, code, status, frequency, payment_method)
+    return templates.TemplateResponse("models/list.html", context)
 
 
 @router.get("/export")
@@ -345,4 +361,84 @@ def delete_model(model_id: int, db: Session = Depends(get_session), user: User =
         raise HTTPException(status_code=404, detail="Model not found")
     crud.delete_model(db, model)
     return RedirectResponse(url="/models", status_code=303)
+
+
+@router.post("/import")
+async def import_models_excel(
+    request: Request,
+    excel_file: UploadFile = File(...),
+    target_month: str | None = Form(None),
+    schedule_run_id: str | None = Form(None),
+    currency: str = Form("USD"),
+    export_dir: str = Form("exports"),
+    update_existing: str | None = Form(None),
+    model_sheet: str = Form("Models"),
+    payout_sheet: str = Form("Payouts"),
+    auto_runs: str | None = Form(None),
+    db: Session = Depends(get_session),
+    user: User = Depends(get_admin_user),
+):
+    extra_context: dict[str, Any] = {}
+    try:
+        contents = await excel_file.read()
+        if not contents:
+            raise ValueError("The uploaded file is empty.")
+
+        filename = (excel_file.filename or "").lower()
+        if not filename.endswith((".xlsx", ".xlsm", ".xls")):
+            raise ValueError("Upload an Excel file with the .xlsx extension.")
+
+        auto_generate_runs = auto_runs is not None
+        extra_context["import_auto_runs"] = auto_generate_runs
+
+        run_id: int | None = None
+        create_schedule_run = False
+        target_year_int: int | None = None
+        target_month_int: int | None = None
+
+        if auto_generate_runs:
+            create_schedule_run = True
+        else:
+            if schedule_run_id:
+                try:
+                    run_id = int(schedule_run_id)
+                except ValueError as exc:
+                    raise ValueError("Schedule run id must be a number.") from exc
+
+            create_schedule_run = run_id is None
+            if create_schedule_run:
+                if not target_month:
+                    raise ValueError("Select a target month to create a schedule run.")
+                try:
+                    year_str, month_str = target_month.split("-")
+                    target_year_int = int(year_str)
+                    target_month_int = int(month_str)
+                except ValueError as exc:
+                    raise ValueError("Target month must be in YYYY-MM format.") from exc
+
+        import_options = ImportOptions(
+            model_sheet=model_sheet or "Models",
+            payout_sheet=payout_sheet or "Payouts",
+            update_existing=update_existing is not None,
+        )
+        run_options = RunOptions(
+            schedule_run_id=run_id,
+            create_schedule_run=create_schedule_run,
+            target_year=target_year_int,
+            target_month=target_month_int,
+            currency=(currency or "USD").strip() or "USD",
+            export_dir=(export_dir or "exports").strip() or "exports",
+            auto_generate_runs=auto_generate_runs,
+        )
+
+        summary = import_from_excel(db, contents, import_options, run_options)
+        db.commit()
+        db.expire_all()
+        extra_context["import_summary"] = summary
+    except Exception as exc:
+        db.rollback()
+        extra_context["import_error"] = str(exc)
+
+    context = _build_model_list_context(request, user, db, None, None, None, None, extra_context)
+    return templates.TemplateResponse("models/list.html", context)
 

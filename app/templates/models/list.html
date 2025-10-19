@@ -8,10 +8,49 @@
     </div>
     <div>
         {% if user.role == 'admin' %}
+        <a class="button secondary" href="/static/import_templates/payroll_import_template.xlsx" download>
+            Download Template
+        </a>
+        <button class="button secondary" type="button" onclick="openImportModal()">Import Excel</button>
         <a class="button" href="/models/new">Add Model</a>
         {% endif %}
     </div>
 </section>
+
+{% if import_error %}
+<div class="alert error">
+    <strong>Import failed.</strong> {{ import_error }}
+</div>
+{% elif import_summary %}
+    {% set skipped_rows = (import_summary.model_errors + import_summary.payout_errors) %}
+<div class="alert success">
+    <strong>Import complete.</strong>
+    Added {{ import_summary.models_created }} model(s), updated {{ import_summary.models_updated }},
+    and created {{ import_summary.payouts_created }} payout(s)
+    {% if import_summary.schedule_run_ids and import_summary.schedule_run_ids|length > 1 %}
+        across schedule runs
+        <span>
+            {% for run_id in import_summary.schedule_run_ids %}
+                #{{ run_id }}{% if not loop.last %}, {% endif %}
+            {% endfor %}
+        </span>.
+    {% elif import_summary.schedule_run_id %}
+        in schedule run #{{ import_summary.schedule_run_id }}.
+    {% else %}
+        but no schedule run was created.
+    {% endif %}
+    {% if skipped_rows %}
+    <details>
+        <summary>View skipped rows</summary>
+        <ul>
+            {% for message in skipped_rows %}
+            <li>{{ message }}</li>
+            {% endfor %}
+        </ul>
+    </details>
+    {% endif %}
+</div>
+{% endif %}
 
 <section class="card-grid columns-3">
     <div class="card metric">
@@ -127,4 +166,122 @@
         </tbody>
     </table>
 </section>
+
+{% if user.role == 'admin' %}
+<div class="modal-overlay" id="importModalOverlay"></div>
+<div class="modal" id="importModal" role="dialog" aria-modal="true" aria-labelledby="importModalTitle">
+    <div class="modal-header">
+        <h2 id="importModalTitle">Import Models From Excel</h2>
+    <button class="link-button" type="button" aria-label="Close import dialog" onclick="closeImportModal()">X</button>
+    </div>
+    <p style="margin-top: 0;">Upload the workbook with <strong>Models</strong> and <strong>Payouts</strong> sheets to seed the roster and schedule.</p>
+    <form action="/models/import" method="post" enctype="multipart/form-data" class="form" style="margin-top: 16px;">
+        <div class="form-row">
+            <label for="excel_file">Excel workbook (.xlsx)</label>
+            <input id="excel_file" name="excel_file" type="file" accept=".xlsx,.xlsm,.xls" required />
+        </div>
+        <div class="checkbox-row">
+            <input id="auto_runs" name="auto_runs" type="checkbox" {% if import_auto_runs %}checked{% endif %} onchange="toggleAutoRuns(this.checked)" />
+            <label for="auto_runs">Auto-create payroll runs from payout months</label>
+        </div>
+        <div class="form-row">
+            <label for="schedule_run_id">Schedule run id (optional)</label>
+            <input id="schedule_run_id" name="schedule_run_id" type="number" min="1" placeholder="Leave blank to create a new run" />
+        </div>
+        <div class="form-row">
+            <label for="target_month">Target month for new run</label>
+            <input id="target_month" name="target_month" type="month" placeholder="YYYY-MM" />
+            <small id="target_month_help">If no schedule run id is provided, a new run will be created for this month.</small>
+        </div>
+        <div class="form-row">
+            <label for="currency">Currency</label>
+            <input id="currency" name="currency" type="text" value="USD" />
+        </div>
+        <div class="form-row">
+            <label for="export_dir">Export directory</label>
+            <input id="export_dir" name="export_dir" type="text" value="exports" />
+        </div>
+        <div class="form-row">
+            <label for="model_sheet">Model sheet name</label>
+            <input id="model_sheet" name="model_sheet" type="text" value="Models" />
+        </div>
+        <div class="form-row">
+            <label for="payout_sheet">Payout sheet name</label>
+            <input id="payout_sheet" name="payout_sheet" type="text" value="Payouts" />
+        </div>
+        <div class="checkbox-row">
+            <input id="update_existing" name="update_existing" type="checkbox" />
+            <label for="update_existing">Update existing models when codes already exist</label>
+        </div>
+        <div class="modal-actions">
+            <button class="button" type="submit">Import Data</button>
+            <button class="button secondary" type="button" onclick="closeImportModal()">Cancel</button>
+        </div>
+    </form>
+</div>
+
+<script>
+function openImportModal() {
+    const overlay = document.getElementById('importModalOverlay');
+    const modal = document.getElementById('importModal');
+    if (!modal || !overlay) {
+        return;
+    }
+    overlay.classList.add('active');
+    modal.classList.add('active');
+    const targetMonthInput = document.getElementById('target_month');
+    if (targetMonthInput && !targetMonthInput.value) {
+        const today = new Date();
+        const iso = today.toISOString().slice(0, 7);
+        targetMonthInput.value = iso;
+    }
+}
+
+function closeImportModal() {
+    const overlay = document.getElementById('importModalOverlay');
+    const modal = document.getElementById('importModal');
+    if (!modal || !overlay) {
+        return;
+    }
+    overlay.classList.remove('active');
+    modal.classList.remove('active');
+}
+
+function toggleAutoRuns(isChecked) {
+    const scheduleRunInput = document.getElementById('schedule_run_id');
+    const targetMonthInput = document.getElementById('target_month');
+    const targetMonthHelp = document.getElementById('target_month_help');
+
+    if (scheduleRunInput) {
+        scheduleRunInput.disabled = isChecked;
+        if (isChecked) {
+            scheduleRunInput.value = '';
+        }
+    }
+
+    if (targetMonthInput) {
+        targetMonthInput.disabled = isChecked;
+        if (isChecked) {
+            targetMonthInput.value = '';
+        }
+    }
+
+    if (targetMonthHelp) {
+        targetMonthHelp.style.display = isChecked ? 'none' : '';
+    }
+}
+
+const importOverlay = document.getElementById('importModalOverlay');
+if (importOverlay) {
+    importOverlay.addEventListener('click', closeImportModal);
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    const autoRunsCheckbox = document.getElementById('auto_runs');
+    if (autoRunsCheckbox) {
+        toggleAutoRuns(autoRunsCheckbox.checked);
+    }
+});
+</script>
+{% endif %}
 {% endblock %}
