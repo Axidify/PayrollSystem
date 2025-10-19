@@ -48,6 +48,10 @@ def list_runs(
             run.frequency_counts = json.loads(run.summary_frequency_counts)
         except json.JSONDecodeError:
             run.frequency_counts = {}
+        # Recalculate models_paid dynamically to reflect actual paid status in database
+        # (the stored summary_models_paid counts all scheduled models, not just paid ones)
+        summary = crud.run_payment_summary(db, run.id)
+        run.summary_models_paid = summary.get("paid_models", 0)
     return templates.TemplateResponse(
         "schedules/list.html",
         {
