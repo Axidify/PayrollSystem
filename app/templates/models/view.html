@@ -11,6 +11,17 @@
     </div>
 </section>
 
+{% if error_message %}
+<div class="alert error">
+    <strong>Could not complete request.</strong> {{ error_message }}
+</div>
+{% endif %}
+{% if success_message %}
+<div class="alert success">
+    <strong>Done.</strong> {{ success_message }}
+</div>
+{% endif %}
+
 <section class="card card--form">
     <header class="card-heading">
         <h2>Model Information</h2>
@@ -131,6 +142,148 @@
             <span class="info-value">{{ model.created_at.strftime('%m/%d/%Y %I:%M %p') if model.created_at else '—' }}</span>
         </div>
     </div>
+</section>
+
+<section class="card card--form">
+    {% set adhoc_count = adhoc_payments|length %}
+    {% set pending_count = adhoc_payments | selectattr('status', 'equalto', 'pending') | list | length %}
+    {% set latest_payment = adhoc_payments[0] if adhoc_count else None %}
+
+    <details class="adjustments-panel" {% if adhoc_count %}open{% endif %}>
+        <summary class="adjustments-summary">
+            <span class="adjustments-summary-title">Ad Hoc Payments</span>
+            <span class="adjustments-summary-meta">
+                <span class="adjustments-chip">
+                    {% if adhoc_count %}
+                        {{ adhoc_count }} recorded
+                    {% else %}
+                        None recorded
+                    {% endif %}
+                </span>
+                <span class="adjustments-summary-text">
+                    {% if pending_count %}
+                        {{ pending_count }} pending
+                    {% elif latest_payment %}
+                        Latest {{ latest_payment.pay_date.strftime('%b %d, %Y') }} · ${{ '%.2f'|format(latest_payment.amount) }}
+                    {% endif %}
+                </span>
+            </span>
+        </summary>
+        <div class="adjustments-body">
+            <p class="form-hint">Log one-off payments that fall outside scheduled payroll runs.</p>
+
+            {% if user.role == 'admin' %}
+            <form action="/models/{{ model.id }}/adhoc-payments" method="post" class="adhoc-form">
+                <div class="adhoc-form__panel">
+                    <div class="adhoc-form__header">
+                        <div>
+                            <h3 class="adhoc-form__title">Record New Payment</h3>
+                            <p class="adhoc-form__subtitle">Capture the payment details that should appear on the ledger.</p>
+                        </div>
+                        <div class="adhoc-form__stats">
+                            <span class="adhoc-chip">Pending: {{ pending_count }}</span>
+                            <span class="adhoc-chip adhoc-chip--highlight">Total Recorded: {{ adhoc_count }}</span>
+                        </div>
+                    </div>
+                    <div class="form-grid two-column">
+                        <div class="form-row">
+                            <label for="adhoc-pay-date">Pay Date <span class="required-badge">Required</span></label>
+                            <input id="adhoc-pay-date" name="pay_date" type="date" required />
+                        </div>
+                        <div class="form-row">
+                            <label for="adhoc-amount">Amount (USD) <span class="required-badge">Required</span></label>
+                            <input id="adhoc-amount" name="amount" type="number" step="0.01" min="0.01" required />
+                        </div>
+                        <div class="form-row">
+                            <label for="adhoc-description">Description</label>
+                            <input id="adhoc-description" name="description" type="text" maxlength="255" placeholder="Reason or memo" />
+                        </div>
+                        <div class="form-row span-all">
+                            <label for="adhoc-notes">Notes (internal)</label>
+                            <textarea id="adhoc-notes" name="notes" rows="3" placeholder="Optional notes for this payment"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="adhoc-form__actions">
+                    <button class="button" type="submit">Add Ad Hoc Payment</button>
+                    <p class="form-hint">Saved instantly — this entry will sync with the payments table below.</p>
+                </div>
+            </form>
+            {% endif %}
+
+            {% if adhoc_payments %}
+            <div class="data-table-wrapper adhoc-table">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Pay Date</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            <th>Description</th>
+                            <th>Notes</th>
+                            {% if user.role == 'admin' %}
+                            <th>Actions</th>
+                            {% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for payment in adhoc_payments %}
+                        <tr>
+                            <td>{{ payment.pay_date.strftime('%m/%d/%Y') }}</td>
+                            <td class="info-value">${{ '%.2f'|format(payment.amount) }}</td>
+                            <td>
+                                {% if payment.status == 'paid' %}
+                                    <span class="status-chip status-chip--active">Paid</span>
+                                {% elif payment.status == 'cancelled' %}
+                                    <span class="status-chip status-chip--neutral">Cancelled</span>
+                                {% else %}
+                                    <span class="status-chip status-chip--warning">Pending</span>
+                                {% endif %}
+                            </td>
+                            <td class="info-value--muted">{{ payment.description or '—' }}</td>
+                            <td>
+                                <div class="info-value--muted">{{ payment.notes or '—' }}</div>
+                                {% if user.role == 'admin' %}
+                                <details class="notes-editor">
+                                    <summary>Edit notes</summary>
+                                    <form action="/models/{{ model.id }}/adhoc-payments/{{ payment.id }}/notes" method="post">
+                                        <textarea name="notes" rows="2" placeholder="Update notes">{{ payment.notes or '' }}</textarea>
+                                        <button class="link-button" type="submit">Save</button>
+                                    </form>
+                                </details>
+                                {% endif %}
+                            </td>
+                            {% if user.role == 'admin' %}
+                            <td class="actions actions--compact">
+                                <form action="/models/{{ model.id }}/adhoc-payments/{{ payment.id }}/status" method="post">
+                                    <input name="action" type="hidden" value="mark_paid" />
+                                    <button class="link-button" type="submit" {% if payment.status == 'paid' %}disabled{% endif %}>Mark Paid</button>
+                                </form>
+                                <form action="/models/{{ model.id }}/adhoc-payments/{{ payment.id }}/status" method="post">
+                                    <input name="action" type="hidden" value="mark_pending" />
+                                    <button class="link-button" type="submit" {% if payment.status == 'pending' %}disabled{% endif %}>Set Pending</button>
+                                </form>
+                                <form action="/models/{{ model.id }}/adhoc-payments/{{ payment.id }}/status" method="post">
+                                    <input name="action" type="hidden" value="cancel" />
+                                    <button class="link-button" type="submit" {% if payment.status == 'cancelled' %}disabled{% endif %}>Cancel</button>
+                                </form>
+                                <form action="/models/{{ model.id }}/adhoc-payments/{{ payment.id }}/delete" method="post" onsubmit="return confirm('Delete this ad hoc payment?');">
+                                    <button class="link-button" type="submit">Delete</button>
+                                </form>
+                            </td>
+                            {% endif %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state" style="margin-top: 16px;">
+                No ad hoc payments recorded for this model yet.
+            </div>
+            {% endif %}
+        </div>
+    </details>
 </section>
 
 <section class="card card--form">

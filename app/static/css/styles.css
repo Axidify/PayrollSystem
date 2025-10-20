@@ -708,6 +708,45 @@ section {
     display: inline;
 }
 
+.actions.actions--compact {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.actions.actions--compact form {
+    display: flex;
+}
+
+.actions.actions--compact button {
+    padding: 0;
+}
+
+.notes-editor {
+    margin-top: 8px;
+}
+
+.notes-editor summary {
+    cursor: pointer;
+    color: #93c5fd;
+    font-weight: 600;
+    list-style: none;
+}
+
+.notes-editor summary::marker,
+.notes-editor summary::-webkit-details-marker {
+    display: none;
+}
+
+.notes-editor[open] summary {
+    margin-bottom: 6px;
+}
+
+.notes-editor textarea {
+    width: 100%;
+    margin-bottom: 6px;
+}
+
 .link-button {
     border: none;
     background: none;
@@ -728,6 +767,103 @@ section {
     display: grid;
     gap: 18px;
     max-width: 720px;
+}
+
+.adhoc-form {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.adhoc-form__panel {
+    padding: 22px 26px;
+    border-radius: 16px;
+    background: linear-gradient(160deg, rgba(30, 41, 59, 0.75), rgba(37, 99, 235, 0.12));
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    box-shadow: 0 18px 42px rgba(15, 23, 42, 0.35);
+}
+
+.adhoc-form__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 18px;
+}
+
+.adhoc-form__title {
+    margin: 0;
+    font-size: 1.1rem;
+    letter-spacing: 0.01em;
+}
+
+.adhoc-form__subtitle {
+    margin: 4px 0 0;
+    color: #cbd5e1;
+    font-size: 0.9rem;
+}
+
+.adhoc-form__stats {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+.adhoc-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.15);
+    color: #f8fafc;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.adhoc-chip--highlight {
+    background: rgba(59, 130, 246, 0.25);
+    color: #bfdbfe;
+}
+
+.adhoc-form__actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.adhoc-form__actions .form-hint {
+    font-size: 0.8rem;
+}
+
+.adhoc-table {
+    margin-top: 18px;
+}
+
+@media (max-width: 640px) {
+    .adhoc-form__panel {
+        padding: 18px;
+    }
+
+    .adhoc-form__header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .adhoc-form__actions {
+        align-items: stretch;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .adhoc-form__actions .button {
+        width: 100%;
+    }
 }
 
 @media (max-width: 640px) {
