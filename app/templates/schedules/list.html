@@ -125,15 +125,6 @@
                 <p>{{ monthly_summary.run_count }} run{% if monthly_summary.run_count != 1 %}s{% endif %} captured for this period.</p>
             </div>
         </div>
-        {% if monthly_frequency %}
-        <div class="frequency-summary" style="margin-bottom: 16px;">
-            {% for name, count in monthly_frequency|dictsort %}
-            <span class="frequency-chip">{{ name|replace('_', ' ')|title }} · {{ count }}</span>
-            {% endfor %}
-        </div>
-        {% else %}
-        <p class="empty-state" style="margin-bottom: 16px;">No payout cadence recorded for {{ selected_month_label or 'this period' }}.</p>
-        {% endif %}
         {% if selected_run_cards %}
         <div class="run-grid">
             {% for run in selected_run_cards %}
