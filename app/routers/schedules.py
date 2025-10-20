@@ -351,6 +351,7 @@ def _gather_dashboard_data(db: Session, month: str | None) -> dict[str, object]:
     return {
         "today": today,
         "current_year": current_year,
+        "current_month_label": today.strftime("%B %Y"),
         "all_runs": all_runs,
         "selected_runs": selected_runs,
         "selected_run_cards": selected_run_cards,
@@ -397,6 +398,7 @@ def list_runs(
             "filters": dashboard["filters"],
             "month_options": dashboard["month_options"],
             "selected_month_label": dashboard["selected_month_label"],
+            "current_month_label": dashboard["current_month_label"],
             "monthly_summary": dashboard["monthly_summary"],
             "monthly_frequency": dashboard["monthly_frequency"],
             "has_runs": bool(dashboard["all_runs"]),

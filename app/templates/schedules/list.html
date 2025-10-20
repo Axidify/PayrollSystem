@@ -92,14 +92,9 @@
 
 <section class="stat-grid">
     <article class="card stat-card">
-        <p class="stat-card__label">Runs Tracked</p>
-        <p class="stat-card__value">{{ monthly_summary.run_count }}</p>
-        <p class="stat-card__hint">{{ selected_month_label or 'Latest cycle' }}</p>
-    </article>
-    <article class="card stat-card">
         <p class="stat-card__label">Total Payout</p>
     <p class="stat-card__value">{{ monthly_summary.currency or 'USD' }} {{ monthly_summary.total_payout|money }}</p>
-        <p class="stat-card__hint">All runs in view</p>
+        <p class="stat-card__hint">{{ selected_month_label or current_month_label }}</p>
     </article>
     <article class="card stat-card">
         <p class="stat-card__label">Paid</p>
