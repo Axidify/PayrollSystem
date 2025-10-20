@@ -20,13 +20,28 @@
         </div>
     </header>
     <form id="analytics-form" class="filter-card__form">
-        <div class="filter-group">
-            <label for="analytics-start">Start Date</label>
-            <input id="analytics-start" name="start" type="date" value="{{ default_start }}" required>
-        </div>
-        <div class="filter-group">
-            <label for="analytics-end">End Date</label>
-            <input id="analytics-end" name="end" type="date" value="{{ default_end }}" required>
+        <div class="filter-card__grid">
+            <div class="filter-group">
+                <label for="analytics-start">Start Date</label>
+                <input id="analytics-start" name="start" type="date" value="{{ default_start }}" required>
+            </div>
+            <div class="filter-card__end-datasets">
+                <div class="filter-group">
+                    <label for="analytics-end">End Date</label>
+                    <input id="analytics-end" name="end" type="date" value="{{ default_end }}" required>
+                </div>
+                <fieldset class="filter-card__datasets">
+                    <legend>Datasets</legend>
+                    <div class="filter-card__datasets-list">
+                        {% for option in dataset_options %}
+                        <label class="checkbox-inline">
+                            <input type="checkbox" name="datasets" value="{{ option.id }}" {% if option.id == 'payouts' %}checked{% endif %}>
+                            {{ option.label }}
+                        </label>
+                        {% endfor %}
+                    </div>
+                </fieldset>
+            </div>
         </div>
         <div class="quick-range-buttons" id="analytics-quick-ranges">
             <button class="button secondary" type="button" data-range="past_7_days" data-days="7">Past 7 Days</button>
@@ -35,15 +50,6 @@
             <button class="button secondary" type="button" data-range="past_6_months" data-months="6">Past 6 Months</button>
             <button class="button secondary" type="button" data-range="past_1_year" data-months="12">Past 1 Year</button>
         </div>
-        <fieldset class="filter-group" style="min-width: 220px;">
-            <legend>Datasets</legend>
-            {% for option in dataset_options %}
-            <label class="checkbox-inline">
-                <input type="checkbox" name="datasets" value="{{ option.id }}" {% if option.id == 'payouts' %}checked{% endif %}>
-                {{ option.label }}
-            </label>
-            {% endfor %}
-        </fieldset>
     </form>
 </section>
 
