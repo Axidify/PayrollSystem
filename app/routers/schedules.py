@@ -935,6 +935,7 @@ def view_schedule(
         status=status_filter,
         pay_date=pay_date_filter,
     )
+    payout_total = sum((payout.amount or Decimal("0")) for payout in payouts)
     validations = crud.list_validation_for_run(db, run_id)
     try:
         frequency_counts = json.loads(run.summary_frequency_counts)
@@ -956,10 +957,10 @@ def view_schedule(
             "user": user,
             "run": run,
             "payouts": payouts,
+            "payout_total": payout_total,
             "validations": validations,
             "frequency_counts": frequency_counts,
             "base_filename": base_filename,
-            "export_dir": export_path,
             "summary": summary,
             "status_counts": status_counts,
             "filters": {
