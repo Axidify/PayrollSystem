@@ -319,6 +319,11 @@ section {
     font-size: 0.95rem;
 }
 
+.button.button--compact {
+    padding: 8px 14px;
+    font-size: 0.85rem;
+}
+
 @media (max-width: 640px) {
     .button {
         width: 100%;
@@ -1079,6 +1084,12 @@ section {
 
 .data-table tbody tr:hover {
     background: rgba(37, 99, 235, 0.08);
+}
+
+.table-subtle {
+    color: #94a3b8;
+    font-size: 0.85em;
+    margin-left: 4px;
 }
 
 .tag {

@@ -9,6 +9,15 @@
 </section>
 
 <section class="metrics">
+    {% if summary.latest_run_is_current_month %}
+        {% set run_paid_title = 'Current Month Paid' %}
+        {% set run_outstanding_title = 'Current Month Outstanding' %}
+        {% set run_detail_title = 'Current Month Run' %}
+    {% else %}
+        {% set run_paid_title = 'Latest Run Paid' %}
+        {% set run_outstanding_title = 'Latest Run Outstanding' %}
+        {% set run_detail_title = 'Latest Run' %}
+    {% endif %}
     <div class="metric">
         <div class="metric-title">Total Models</div>
         <div class="metric-value">{{ summary.total_models }}</div>
@@ -26,7 +35,7 @@
     <div class="metric-value">${{ summary.lifetime_paid|money }}</div>
     </div>
     <div class="metric">
-        <div class="metric-title">Outstanding</div>
+        <div class="metric-title">Total Outstanding</div>
     <div class="metric-value">${{ summary.outstanding_total|money }}</div>
     </div>
     <div class="metric">
@@ -42,16 +51,16 @@
         <div class="metric-value">{{ summary.total_runs }}</div>
     </div>
     <div class="metric">
-        <div class="metric-title">Latest Run Paid</div>
-    <div class="metric-value">${{ summary.latest_run_paid|money }}</div>
+        <div class="metric-title">{{ run_paid_title }}</div>
+        <div class="metric-value">${{ summary.latest_run_paid|money }}</div>
     </div>
     <div class="metric">
-        <div class="metric-title">Latest Run Outstanding</div>
-    <div class="metric-value">${{ summary.latest_run_unpaid|money }}</div>
+        <div class="metric-title">{{ run_outstanding_title }}</div>
+        <div class="metric-value">${{ summary.latest_run_unpaid|money }}</div>
     </div>
     {% if summary.latest_run %}
     <div class="metric" style="grid-column: span 2;">
-        <div class="metric-title">Last Run</div>
+        <div class="metric-title">{{ run_detail_title }}</div>
         <div class="metric-value" style="font-size: 1.1rem;">
             {{ summary.latest_run.target_year }}-{{ '%02d'|format(summary.latest_run.target_month) }} ·
             Generated {{ summary.latest_run.created_at.strftime('%m/%d/%Y') }}
@@ -62,7 +71,10 @@
 
 <section class="card-grid columns-3" style="margin-top: 32px;">
     <div class="card">
-        <h2>Recent Runs</h2>
+        <div class="card-heading">
+            <h2>Recent Runs</h2>
+            <a class="button secondary button--compact" href="/schedules">Open Runs Table</a>
+        </div>
         <table class="data-table">
             <thead>
                 <tr>
@@ -92,7 +104,10 @@
     </div>
 
     <div class="card">
-        <h2>Top Paid Models</h2>
+        <div class="card-heading">
+            <h2>Top Paid Models</h2>
+            <a class="button secondary button--compact" href="/models">Open Models Table</a>
+        </div>
         <table class="data-table">
             <thead>
                 <tr>
@@ -124,25 +139,39 @@
     </div>
 
     <div class="card">
-        <h2>Recent Validation Issues</h2>
+        <div class="card-heading">
+            <h2>Pending Ad Hoc Payments</h2>
+            <a class="button secondary button--compact" href="/schedules">Manage Ad Hoc Payments</a>
+        </div>
         <table class="data-table">
             <thead>
                 <tr>
-                    <th>Severity</th>
+                    <th>Pay Date</th>
                     <th>Model</th>
-                    <th>Issue</th>
+                    <th>Amount</th>
+                    <th>Status</th>
                 </tr>
             </thead>
             <tbody>
-                {% for issue in validation_issues %}
+                {% for payment in pending_adhoc_payments %}
                 <tr>
-                    <td>{{ issue.severity }}</td>
-                    <td>{{ issue.model_code or '—' }}</td>
-                    <td>{{ issue.issue }}</td>
+                    <td>{{ payment.pay_date.strftime('%m/%d/%Y') }}</td>
+                    <td>
+                        {% if payment.model_name %}
+                            {{ payment.model_name }}
+                            {% if payment.model_code %}
+                                <span class="table-subtle">· {{ payment.model_code }}</span>
+                            {% endif %}
+                        {% else %}
+                            {{ payment.model_code or '—' }}
+                        {% endif %}
+                    </td>
+                    <td>${{ payment.amount|money }}</td>
+                    <td>{{ payment.status|replace('_', ' ')|title }}</td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td class="empty-state" colspan="3">No validation issues logged.</td>
+                    <td class="empty-state" colspan="4">No pending ad hoc payments.</td>
                 </tr>
                 {% endfor %}
             </tbody>

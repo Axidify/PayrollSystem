@@ -47,13 +47,16 @@ def dashboard(request: Request, db: Session = Depends(get_session), user: User =
             }
         )
 
-    validation_data = []
-    for issue in crud.recent_validation_issues(db):
-        validation_data.append(
+    pending_adhoc_data = []
+    for payment in crud.pending_adhoc_payments(db):
+        pending_adhoc_data.append(
             {
-                "severity": issue.severity,
-                "model_code": issue.model.code if issue.model else None,
-                "issue": issue.issue,
+                "id": payment.id,
+                "pay_date": payment.pay_date,
+                "amount": payment.amount,
+                "status": payment.status,
+                "model_code": payment.model.code if payment.model else None,
+                "model_name": payment.model.working_name if payment.model else None,
             }
         )
 
@@ -65,6 +68,6 @@ def dashboard(request: Request, db: Session = Depends(get_session), user: User =
             "summary": summary,
             "recent_runs": recent_runs_data,
             "top_models": top_models_data,
-            "validation_issues": validation_data,
+            "pending_adhoc_payments": pending_adhoc_data,
         },
     )

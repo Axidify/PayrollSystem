@@ -436,6 +436,22 @@ def dashboard_summary(db: Session) -> dict[str, Decimal | int | date | None]:
         db.execute(select(ScheduleRun).order_by(ScheduleRun.created_at.desc())).scalars().first()
     )
 
+    today = date.today()
+    current_month_run = (
+        db.execute(
+            select(ScheduleRun)
+            .where(
+                ScheduleRun.target_year == today.year,
+                ScheduleRun.target_month == today.month,
+            )
+            .order_by(ScheduleRun.created_at.desc())
+        )
+        .scalars()
+        .first()
+    )
+
+    run_for_metrics = current_month_run or latest_run
+
     lifetime_paid_stmt = select(func.coalesce(func.sum(Payout.amount), 0)).where(Payout.status == "paid")
     lifetime_paid = Decimal(db.execute(lifetime_paid_stmt).scalar_one() or 0)
 
@@ -450,16 +466,16 @@ def dashboard_summary(db: Session) -> dict[str, Decimal | int | date | None]:
 
     latest_run_paid = Decimal("0")
     latest_run_unpaid = Decimal("0")
-    if latest_run:
+    if run_for_metrics:
         latest_paid_stmt = (
             select(func.coalesce(func.sum(Payout.amount), 0))
-            .where(Payout.schedule_run_id == latest_run.id, Payout.status == "paid")
+            .where(Payout.schedule_run_id == run_for_metrics.id, Payout.status == "paid")
         )
         latest_run_paid = Decimal(db.execute(latest_paid_stmt).scalar_one() or 0)
 
         latest_unpaid_stmt = (
             select(func.coalesce(func.sum(Payout.amount), 0))
-            .where(Payout.schedule_run_id == latest_run.id, Payout.status != "paid")
+            .where(Payout.schedule_run_id == run_for_metrics.id, Payout.status != "paid")
         )
         latest_run_unpaid = Decimal(db.execute(latest_unpaid_stmt).scalar_one() or 0)
 
@@ -468,7 +484,8 @@ def dashboard_summary(db: Session) -> dict[str, Decimal | int | date | None]:
         "active_models": int(active_models),
         "inactive_models": int(inactive_models),
         "total_runs": int(total_runs),
-        "latest_run": latest_run,
+    "latest_run": run_for_metrics,
+    "latest_run_is_current_month": bool(current_month_run),
         "lifetime_paid": lifetime_paid,
         "outstanding_total": outstanding_total,
         "pending_count": int(pending_count),
@@ -504,6 +521,18 @@ def top_paid_models(db: Session, limit: int = 5) -> list[tuple[Model, Decimal]]:
 
 def recent_validation_issues(db: Session, limit: int = 5) -> Sequence[ValidationIssue]:
     stmt = select(ValidationIssue).order_by(ValidationIssue.id.desc()).limit(limit)
+    return db.execute(stmt).scalars().all()
+
+
+def pending_adhoc_payments(db: Session, limit: int = 6) -> Sequence[AdhocPayment]:
+    stmt = (
+        select(AdhocPayment)
+        .options(selectinload(AdhocPayment.model))
+        .where(AdhocPayment.status == "pending")
+        .order_by(AdhocPayment.pay_date.asc(), AdhocPayment.id.asc())
+    )
+    if limit:
+        stmt = stmt.limit(limit)
     return db.execute(stmt).scalars().all()
 
 
