@@ -115,6 +115,11 @@
         <p class="stat-card__value">{{ monthly_summary.models_paid }}</p>
         <p class="stat-card__hint">Across visible runs</p>
     </article>
+    <article class="card stat-card">
+        <p class="stat-card__label">Ad Hoc ({{ monthly_adhoc_summary.month_label }})</p>
+        <p class="stat-card__value">{{ monthly_adhoc_summary.currency }} {{ '%.2f'|format(monthly_adhoc_summary.total_amount or 0) }}</p>
+        <p class="stat-card__hint">{{ monthly_adhoc_summary.count }} payment{% if monthly_adhoc_summary.count != 1 %}s{% endif %} · {{ monthly_adhoc_summary.status_counts.pending }} pending</p>
+    </article>
 </section>
 
 <div class="highlight-grid">
@@ -135,7 +140,124 @@
         <p class="empty-state">No payroll runs recorded for {{ selected_month_label or 'this period' }}.</p>
         {% endif %}
     </section>
+    {% if monthly_adhoc_summary.has_payments %}
+    <section class="card highlight-card adhoc-highlight">
+        <div class="section-heading">
+            <div>
+                <h2>Ad Hoc Payments</h2>
+                <p>{{ monthly_adhoc_summary.count }} recorded for {{ monthly_adhoc_summary.month_label }} · latest {{ monthly_adhoc_summary.latest_pay_date_display or 'n/a' }}</p>
+            </div>
+            <div class="adhoc-summary-chips">
+                {% for item in monthly_adhoc_summary.status_display %}
+                <span class="adhoc-summary-chip adhoc-summary-chip--{{ item.key }}">
+                    {{ item.label }} · {{ item.count }}
+                    {% if item.amount > 0 %}
+                    <span class="adhoc-summary-chip__amount">{{ monthly_adhoc_summary.currency }} {{ '%.2f'|format(item.amount) }}</span>
+                    {% endif %}
+                </span>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="adhoc-highlight__totals">
+            <div>
+                <span class="adhoc-highlight__label">Total Recorded</span>
+                <span class="adhoc-highlight__value">{{ monthly_adhoc_summary.currency }} {{ '%.2f'|format(monthly_adhoc_summary.total_amount or 0) }}</span>
+            </div>
+            <div>
+                <span class="adhoc-highlight__label">Pending</span>
+                <span class="adhoc-highlight__value">{{ monthly_adhoc_summary.currency }} {{ '%.2f'|format(monthly_adhoc_summary.pending_total or 0) }}</span>
+            </div>
+            <div>
+                <span class="adhoc-highlight__label">Paid</span>
+                <span class="adhoc-highlight__value">{{ monthly_adhoc_summary.currency }} {{ '%.2f'|format(monthly_adhoc_summary.paid_total or 0) }}</span>
+            </div>
+        </div>
+        {% if user.role == 'admin' and monthly_adhoc_summary.count == 1 and monthly_adhoc_summary.models_impacted == 1 and monthly_adhoc_single %}
+        {% set schedules_return_url = '/schedules' %}
+        {% if filters.month %}
+            {% set schedules_return_url = schedules_return_url + '?month=' + filters.month %}
+        {% endif %}
+        <div class="adhoc-highlight__actions">
+            <span class="adhoc-highlight__label adhoc-highlight__label--inline">Update Status</span>
+            <div class="adhoc-highlight__buttons">
+                <form action="/models/{{ monthly_adhoc_single.model_id }}/adhoc-payments/{{ monthly_adhoc_single.id }}/status" method="post">
+                    <input name="action" type="hidden" value="mark_pending" />
+                    <input name="return_url" type="hidden" value="{{ schedules_return_url }}" />
+                    <button class="adhoc-action-button adhoc-action-button--round adhoc-action-button--pending" type="submit" {% if monthly_adhoc_single.status == 'pending' %}disabled{% endif %}>Set Pending</button>
+                </form>
+                <form action="/models/{{ monthly_adhoc_single.model_id }}/adhoc-payments/{{ monthly_adhoc_single.id }}/status" method="post">
+                    <input name="action" type="hidden" value="mark_paid" />
+                    <input name="return_url" type="hidden" value="{{ schedules_return_url }}" />
+                    <button class="adhoc-action-button adhoc-action-button--round adhoc-action-button--paid" type="submit" {% if monthly_adhoc_single.status == 'paid' %}disabled{% endif %}>Mark Paid</button>
+                </form>
+                <form action="/models/{{ monthly_adhoc_single.model_id }}/adhoc-payments/{{ monthly_adhoc_single.id }}/status" method="post">
+                    <input name="action" type="hidden" value="cancel" />
+                    <input name="return_url" type="hidden" value="{{ schedules_return_url }}" />
+                    <button class="adhoc-action-button adhoc-action-button--round adhoc-action-button--cancel" type="submit" {% if monthly_adhoc_single.status == 'cancelled' %}disabled{% endif %}>Cancel</button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+    </section>
+    {% endif %}
 </div>
+
+{% if monthly_adhoc_summary.has_payments %}
+<section class="card card--adhoc-table">
+    <div class="section-heading">
+        <div>
+            <h2>Ad Hoc Payments — {{ monthly_adhoc_summary.month_label }}</h2>
+            <p>{{ monthly_adhoc_summary.count }} payment{% if monthly_adhoc_summary.count != 1 %}s{% endif %} impacting {{ monthly_adhoc_summary.models_impacted }} model{% if monthly_adhoc_summary.models_impacted != 1 %}s{% endif %}.</p>
+        </div>
+    </div>
+    <div class="data-table-wrapper">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Model</th>
+                    <th>Pay Date</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                    <th>Description</th>
+                    <th>Notes</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for payment in monthly_adhoc_payments %}
+                <tr>
+                    <td>
+                        <div class="adhoc-table__model">{{ payment.model.working_name or payment.model.code }}</div>
+                        <div class="adhoc-table__code">{{ payment.model.code }}</div>
+                    </td>
+                    <td>{{ payment.pay_date.strftime('%m/%d/%Y') }}</td>
+                    <td class="info-value">{{ monthly_adhoc_summary.currency }} {{ '%.2f'|format(payment.amount) }}</td>
+                    <td>
+                        {% if payment.status == 'paid' %}
+                        <span class="status-chip status-chip--active">Paid</span>
+                        {% elif payment.status == 'pending' %}
+                        <span class="status-chip status-chip--warning">Pending</span>
+                        {% else %}
+                        <span class="status-chip status-chip--neutral">Cancelled</span>
+                        {% endif %}
+                    </td>
+                    <td class="info-value--muted">{{ payment.description or '—' }}</td>
+                    <td class="info-value--muted">{{ payment.notes or '—' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% else %}
+<section class="card card--adhoc-table">
+    <div class="section-heading">
+        <div>
+            <h2>Ad Hoc Payments — {{ monthly_adhoc_summary.month_label }}</h2>
+            <p>No ad hoc payments logged for this month.</p>
+        </div>
+    </div>
+</section>
+{% endif %}
 
 <section class="card">
     <div class="section-heading">
