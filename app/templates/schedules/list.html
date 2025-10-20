@@ -58,7 +58,6 @@
     <div class="header-actions">
         <a class="button secondary" href="{{ view_all_url }}">View All Runs</a>
         <a class="button secondary" href="{{ table_view_url }}">Table View</a>
-        <button class="button secondary" type="button" onclick="openExportModal()">Export Excel</button>
         {% if user.role == 'admin' %}
         <a class="button" href="/schedules/new">Run Payroll</a>
         {% endif %}
@@ -282,86 +281,8 @@
 </section>
 {% endif %}
 
-<div class="modal-overlay" id="exportModalOverlay"></div>
-<div class="modal" id="exportModal" role="dialog" aria-modal="true" aria-labelledby="exportModalTitle">
-    <div class="modal-header">
-        <h2 id="exportModalTitle">Export Dashboard Data</h2>
-        <button class="link-button" type="button" aria-label="Close export dialog" onclick="closeExportModal()">X</button>
-    </div>
-    <p style="margin-top: 0;">
-        Choose the datasets to include in your Excel workbook. Selections apply to the currently viewed month.
-    </p>
-    <form id="exportExcelForm" action="/schedules/export" method="post" class="form" style="margin-top: 16px;">
-        <input name="month" type="hidden" value="{{ export_month_value }}" />
-        <div class="checkbox-row">
-            <input id="export_monthly_summary" name="include_monthly_summary" type="checkbox" value="1" {% if export_defaults.monthly_summary %}checked{% endif %} />
-            <label for="export_monthly_summary">Monthly summary metrics</label>
-        </div>
-        <div class="checkbox-row">
-            <input id="export_run_details" name="include_run_details" type="checkbox" value="1" {% if export_defaults.run_details %}checked{% endif %} />
-            <label for="export_run_details">Run breakdown for selected month</label>
-        </div>
-        <div class="checkbox-row">
-            <input id="export_adhoc_summary" name="include_adhoc_summary" type="checkbox" value="1" {% if export_defaults.adhoc_summary %}checked{% endif %} />
-            <label for="export_adhoc_summary">Ad hoc payment summary</label>
-        </div>
-        <div class="checkbox-row">
-            <input id="export_adhoc_details" name="include_adhoc_details" type="checkbox" value="1" {% if export_defaults.adhoc_details %}checked{% endif %} />
-            <label for="export_adhoc_details">Ad hoc payment details</label>
-        </div>
-        <div class="checkbox-row">
-            <input id="export_recent_runs" name="include_recent_runs" type="checkbox" value="1" {% if export_defaults.recent_runs %}checked{% endif %} />
-            <label for="export_recent_runs">Recent run snapshots</label>
-        </div>
-        <div class="modal-actions">
-            <button class="button" type="submit">Export</button>
-            <button class="button secondary" type="button" onclick="closeExportModal()">Cancel</button>
-        </div>
-    </form>
-</div>
-
 <script>
-function openExportModal() {
-    const overlay = document.getElementById('exportModalOverlay');
-    const modal = document.getElementById('exportModal');
-    if (!modal || !overlay) {
-        return;
-    }
-    overlay.classList.add('active');
-    modal.classList.add('active');
-}
-
-function closeExportModal() {
-    const overlay = document.getElementById('exportModalOverlay');
-    const modal = document.getElementById('exportModal');
-    if (!modal || !overlay) {
-        return;
-    }
-    overlay.classList.remove('active');
-    modal.classList.remove('active');
-}
-
-function validateExportSelection(event) {
-    const form = event.target;
-    const checkboxes = form.querySelectorAll('input[type="checkbox"]');
-    const hasSelection = Array.from(checkboxes).some((checkbox) => checkbox.checked);
-    if (!hasSelection) {
-        event.preventDefault();
-        alert('Select at least one dataset to export.');
-    }
-}
-
-const exportOverlay = document.getElementById('exportModalOverlay');
-if (exportOverlay) {
-    exportOverlay.addEventListener('click', closeExportModal);
-}
-
 document.addEventListener('DOMContentLoaded', function () {
-    const exportForm = document.getElementById('exportExcelForm');
-    if (exportForm) {
-        exportForm.addEventListener('submit', validateExportSelection);
-    }
-
     const statusSelects = document.querySelectorAll('.adhoc-status-select');
     statusSelects.forEach(function (select) {
         select.addEventListener('change', function () {

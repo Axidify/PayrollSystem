@@ -131,6 +131,52 @@ section {
     flex: 1;
 }
 
+.nav-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.nav-group__header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.nav-group__header .nav-link {
+    flex: 1;
+}
+
+.nav-group__toggle {
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    color: #cbd5e1;
+    border-radius: 8px;
+    padding: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease, color 0.2s ease;
+}
+
+.nav-group__toggle:hover,
+.nav-group__toggle:focus-visible {
+    background: rgba(59, 130, 246, 0.18);
+    border-color: rgba(59, 130, 246, 0.45);
+    color: #f8fafc;
+    outline: none;
+}
+
+.nav-group__chevron {
+    width: 8px;
+    height: 8px;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: rotate(-45deg);
+    transition: transform 0.2s ease;
+}
+
 .nav-link {
     text-decoration: none;
     font-weight: 600;
@@ -160,6 +206,53 @@ section {
 
 .nav-link__text {
     flex: 1;
+}
+
+.nav-submenu {
+    display: none;
+    flex-direction: column;
+    gap: 8px;
+    padding-left: 36px;
+}
+
+.nav-group--expanded .nav-submenu {
+    display: flex;
+}
+
+.nav-group--expanded .nav-group__chevron {
+    transform: rotate(45deg);
+}
+
+.nav-sublink {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    color: #cbd5e1;
+    font-weight: 500;
+    font-size: 0.95rem;
+    padding: 8px 12px;
+    border-radius: 8px;
+    transition: background 0.2s ease, color 0.2s ease, transform 0.15s ease;
+}
+
+.nav-sublink__marker {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: rgba(148, 163, 184, 0.7);
+}
+
+.nav-sublink:hover,
+.nav-sublink.active {
+    background: linear-gradient(135deg, rgba(37, 99, 235, 0.28), rgba(59, 130, 246, 0.12));
+    color: #f8fafc;
+    transform: translateX(4px);
+}
+
+.nav-sublink.active .nav-sublink__marker,
+.nav-sublink:hover .nav-sublink__marker {
+    background: #60a5fa;
 }
 
 .sidebar__footer {
@@ -402,7 +495,7 @@ section {
 .snapshot-grid {
     display: grid;
     gap: 24px;
-    align-items: start;
+    align-items: stretch;
 }
 
 @media (min-width: 960px) {
@@ -420,37 +513,281 @@ section {
 .snapshot-card {
     display: flex;
     flex-direction: column;
-    gap: 18px;
+    gap: 20px;
     min-height: 100%;
+    height: 100%;
+    position: relative;
 }
 
-.snapshot-card .card-heading {
-    margin-bottom: 0;
+.snapshot-grid .card--form {
+    margin: 0;
+    max-width: none;
+    width: 100%;
 }
 
-.snapshot-card .form-grid {
-    margin-top: 4px;
+.snapshot-grid .card--form + .card--form {
+    margin-top: 0;
 }
 
-.snapshot-card .form-hint {
-    margin-top: 8px;
+.snapshot-card--primary {
+    border: 1px solid rgba(59, 130, 246, 0.25);
+    background: linear-gradient(145deg, rgba(30, 64, 175, 0.35), rgba(15, 23, 42, 0.92));
+    box-shadow: 0 20px 60px rgba(30, 64, 175, 0.25);
+}
+
+.snapshot-card--secondary {
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    background: rgba(15, 23, 42, 0.85);
+}
+
+.snapshot-heading {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    margin-bottom: 4px;
+}
+
+.snapshot-heading__icon {
+    display: inline-flex;
+    align-items: center;
+.snapshot-heading__title-group {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    background: linear-gradient(145deg, rgba(59, 130, 246, 0.75), rgba(59, 130, 246, 0.2));
+    color: #e2e8f0;
+    box-shadow: 0 12px 24px rgba(37, 99, 235, 0.25);
+}
+
+.snapshot-heading__icon svg {
+    width: 28px;
+    height: 28px;
+}
+
+.snapshot-heading h2 {
+    margin: 0;
+    font-size: 1.35rem;
+    letter-spacing: 0.01em;
+}
+
+.snapshot-heading p {
+    margin: 6px 0 0;
+    color: #cbd5e1;
+    font-size: 0.95rem;
+    max-width: 420px;
+}
+
+.snapshot-search {
+    position: relative;
+}
+
+.combobox {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.combobox-control {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    border-radius: 14px;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    background: rgba(15, 23, 42, 0.85);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.combobox-control:focus-within {
+    border-color: rgba(59, 130, 246, 0.6);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+}
+
+.combobox-icon {
+    font-size: 1.1rem;
+    color: rgba(148, 163, 184, 0.9);
+}
+
+.combobox-icon svg {
+    width: 20px;
+    height: 20px;
+}
+
+.combobox-control input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: #f8fafc;
+    font-size: 1rem;
+    outline: none;
+}
+
+.combobox-control input::placeholder {
+    color: rgba(148, 163, 184, 0.75);
+}
+
+.combobox-clear {
+    border: none;
+    background: rgba(148, 163, 184, 0.15);
+    color: #e2e8f0;
+    border-radius: 999px;
+    width: 28px;
+    height: 28px;
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.combobox-clear:hover,
+.combobox-clear:focus-visible {
+    background: rgba(59, 130, 246, 0.35);
+    transform: translateY(-1px);
+}
+
+.combobox-options {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    right: 0;
+    border-radius: 14px;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    background: rgba(15, 23, 42, 0.95);
+    box-shadow: 0 18px 48px rgba(15, 23, 42, 0.4);
+    max-height: 260px;
+    overflow-y: auto;
+    padding: 6px 0;
+    z-index: 12;
+}
+
+.combobox-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 18px;
+    font-size: 0.95rem;
+    color: #e2e8f0;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.combobox-option__code {
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.combobox-option__name {
+    flex: 1;
+    color: #cbd5e1;
+    text-align: right;
+    font-weight: 500;
+}
+
+.combobox-option--active,
+.combobox-option:hover {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.28), rgba(59, 130, 246, 0.12));
+}
+
+.combobox-option--empty {
+    justify-content: center;
+    color: #94a3b8;
+    font-style: italic;
+    cursor: default;
+}
+
+.combobox-hint {
+    margin: 4px 2px 0;
+    font-size: 0.8rem;
+    color: rgba(148, 163, 184, 0.8);
 }
 
 .snapshot-info {
-    margin-top: 4px;
-    gap: 18px;
+    margin-top: 20px;
+    gap: 20px;
+}
+
+.snapshot-info .info-label {
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-size: 0.72rem;
+    color: rgba(148, 163, 184, 0.9);
 }
 
 .snapshot-info .info-value {
     font-weight: 600;
+    font-size: 1rem;
 }
 
-.snapshot-select {
-    width: 100%;
-}
-
-.snapshot-card .data-table-wrapper {
+.snapshot-stats {
+    display: grid;
+    gap: 16px;
     margin-top: 4px;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.snapshot-stat {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    border-radius: 12px;
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    background: rgba(15, 23, 42, 0.7);
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.28);
+}
+
+.snapshot-stat-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: rgba(59, 130, 246, 0.18);
+    color: #60a5fa;
+}
+
+.snapshot-stat-icon svg {
+    width: 22px;
+    height: 22px;
+}
+
+.snapshot-stat-body {
+    margin-top: 8px;
+    color: rgba(148, 163, 184, 0.85);
+}
+
+@media (max-width: 640px) {
+    .combobox-control {
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .combobox-clear {
+        margin-left: auto;
+    }
+
+    .combobox-option__name {
+        text-align: left;
+    }
+
+    .snapshot-heading {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .snapshot-heading__icon {
+        width: 48px;
+        height: 48px;
+    }
 }
 
 @media (max-width: 768px) {

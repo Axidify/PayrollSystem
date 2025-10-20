@@ -12,22 +12,31 @@
 </section>
 
 <section class="snapshot-grid">
-    <article class="card card--form snapshot-card" aria-labelledby="snapshot-card-heading">
-        <header class="card-heading">
-            <h2 id="snapshot-card-heading">Select Model</h2>
-            <p>Pick a model to load high-level payroll data.</p>
+    <article class="card card--form snapshot-card snapshot-card--primary" aria-labelledby="snapshot-card-heading">
+        <header class="card-heading snapshot-heading">
+            <div>
+                <h2 id="snapshot-card-heading">Snapshot Preview</h2>
+                <p>Search the roster and surface key payroll signals instantly.</p>
+            </div>
         </header>
-        <div class="form-grid">
-            <div class="form-row span-all">
-                <label for="snapshot-model">Model</label>
-                <select id="snapshot-model" class="snapshot-select">
-                    <option value="">Choose a model…</option>
-                    {% for item in models %}
-                        <option value="{{ item.id }}">{{ item.code }} · {{ item.working_name }}</option>
-                    {% endfor %}
-                </select>
+
+        <div class="snapshot-search">
+            <label class="sr-only" for="snapshot-combobox">Search models</label>
+            <div class="combobox" data-combobox>
+                <div class="combobox-control">
+                    <span class="combobox-icon" aria-hidden="true">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M11 4C7.13401 4 4 7.13401 4 11C4 14.866 7.13401 18 11 18C12.8481 18 14.5314 17.2974 15.8242 16.139L19.2929 19.6077C19.6834 19.9982 20.3166 19.9982 20.7071 19.6077C21.0976 19.2172 21.0976 18.584 20.7071 18.1935L17.2383 14.7248C18.3967 13.432 19.0992 11.7486 19.0992 9.90051C19.0992 6.03452 15.9652 2.90051 12.0992 2.90051C8.23318 2.90051 5.09917 6.03452 5.09917 9.90051C5.09917 13.7665 8.23318 16.9005 12.0992 16.9005" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                        </svg>
+                    </span>
+                    <input id="snapshot-combobox" type="text" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="snapshot-options" aria-describedby="snapshot-hint" autocomplete="off" placeholder="Search by code or working name" />
+                    <button type="button" class="combobox-clear" id="snapshot-clear" aria-label="Clear selection">&times;</button>
+                </div>
+                <ul id="snapshot-options" class="combobox-options" role="listbox" hidden></ul>
+                <p class="combobox-hint" id="snapshot-hint">Use Up/Down arrows to browse, Enter to pick a model.</p>
             </div>
         </div>
+
         <div class="info-grid two-column snapshot-info" id="snapshot-info" hidden>
             <div class="info-field">
                 <span class="info-label">Status</span>
@@ -66,12 +75,15 @@
                 <span class="info-value info-value--muted" data-field="crypto_wallet"></span>
             </div>
         </div>
+
     </article>
 
-    <article class="card card--form snapshot-card" aria-labelledby="snapshot-adjustments-heading">
-        <header class="card-heading">
-            <h2 id="snapshot-adjustments-heading">Scheduled Adjustments</h2>
-            <p data-field="adjustment-summary">Select a model to see scheduled adjustments.</p>
+    <article class="card card--form snapshot-card snapshot-card--secondary" aria-labelledby="snapshot-adjustments-heading">
+        <header class="card-heading snapshot-heading">
+            <div>
+                <h2 id="snapshot-adjustments-heading">Scheduled Adjustments</h2>
+                <p data-field="adjustment-summary">Select a model to see scheduled adjustments.</p>
+            </div>
         </header>
         <div class="data-table-wrapper" id="snapshot-adjustments" hidden>
             <table class="data-table">
@@ -89,14 +101,23 @@
     </article>
 </section>
 
+<script type="application/json" id="snapshot-model-data">
+[
+{% for item in models %}
+    {"id": {{ item.id }}, "code": {{ item.code|tojson }}, "working_name": {{ item.working_name|tojson }}, "status": {{ item.status|tojson }}}{% if not loop.last %},{% endif %}
+{% endfor %}
+]
+</script>
+
 <script>
 (function () {
-    const selectEl = document.getElementById("snapshot-model");
-    if (!selectEl) {
-        return;
-    }
-
+    const dataElement = document.getElementById("snapshot-model-data");
+    const optionData = dataElement ? JSON.parse(dataElement.textContent || "[]") : [];
+    const comboboxInput = document.getElementById("snapshot-combobox");
+    const optionList = document.getElementById("snapshot-options");
+    const clearButton = document.getElementById("snapshot-clear");
     const infoContainer = document.getElementById("snapshot-info");
+    const statsContainer = document.getElementById("snapshot-stats");
     const adjustmentsWrapper = document.getElementById("snapshot-adjustments");
     const adjustmentsBody = adjustmentsWrapper.querySelector("tbody");
     const emptyMessage = document.getElementById("snapshot-empty");
@@ -105,6 +126,10 @@
             acc[element.dataset.field] = element;
             return acc;
         }, {});
+
+    if (!comboboxInput) {
+        return;
+    }
 
     const defaultSummary = "Select a model to see scheduled adjustments.";
     const defaultEmpty = "Pick a model to see future raises.";
@@ -124,9 +149,17 @@
         "payment_frequency",
         "amount_monthly",
     ];
+    const statKeys = ["total_paid", "adhoc_pending_count", "adhoc_total_count"];
+
+    let filteredOptions = optionData.slice(0, 12);
+    let activeIndex = -1;
+    let blurTimeout = null;
 
     function resetView() {
         infoContainer.hidden = true;
+        if (statsContainer) {
+            statsContainer.hidden = true;
+        }
         adjustmentsWrapper.hidden = true;
         adjustmentsBody.innerHTML = "";
         emptyMessage.hidden = false;
@@ -136,9 +169,14 @@
             summaryField.textContent = defaultSummary;
         }
         if (fields.status) {
-            fields.status.textContent = "";
+            fields.status.textContent = "—";
         }
         infoKeys.forEach((key) => {
+            if (fields[key]) {
+                fields[key].textContent = "—";
+            }
+        });
+        statKeys.forEach((key) => {
             if (fields[key]) {
                 fields[key].textContent = "—";
             }
@@ -182,6 +220,13 @@
         return value.charAt(0).toUpperCase() + value.slice(1);
     }
 
+    function formatNumber(value) {
+        if (typeof value !== "number" || Number.isNaN(value)) {
+            return "0";
+        }
+        return value.toString();
+    }
+
     function populateAdjustments(adjustments) {
         adjustmentsBody.innerHTML = "";
         if (!adjustments || adjustments.length === 0) {
@@ -223,8 +268,7 @@
         }
     }
 
-    async function handleSelection() {
-        const modelId = selectEl.value;
+    async function loadModel(modelId) {
         if (!modelId) {
             resetView();
             return;
@@ -246,8 +290,12 @@
             const payload = await response.json();
             const model = payload.model || {};
             const adjustments = payload.adjustments || [];
+            const stats = payload.stats || {};
 
             infoContainer.hidden = false;
+            if (statsContainer) {
+                statsContainer.hidden = false;
+            }
             setStatus(model.status);
             infoKeys.forEach((key) => {
                 if (!fields[key]) {
@@ -278,6 +326,16 @@
                 }
             }
 
+            if (fields.total_paid) {
+                fields.total_paid.textContent = stats.total_paid ? formatCurrency(stats.total_paid) : "—";
+            }
+            if (fields.adhoc_pending_count) {
+                fields.adhoc_pending_count.textContent = formatNumber(stats.adhoc_pending_count ?? 0);
+            }
+            if (fields.adhoc_total_count) {
+                fields.adhoc_total_count.textContent = formatNumber(stats.adhoc_total_count ?? 0);
+            }
+
             populateAdjustments(adjustments);
         } catch (error) {
             console.error(error);
@@ -288,8 +346,159 @@
         }
     }
 
+    function hideOptions() {
+        optionList.hidden = true;
+        comboboxInput.setAttribute("aria-expanded", "false");
+        comboboxInput.removeAttribute("aria-activedescendant");
+        activeIndex = -1;
+    }
+
+    function renderOptions(options) {
+        optionList.innerHTML = "";
+        if (!options.length) {
+            const emptyItem = document.createElement("li");
+            emptyItem.className = "combobox-option combobox-option--empty";
+            emptyItem.textContent = "No matches found";
+            emptyItem.setAttribute("role", "option");
+            emptyItem.setAttribute("aria-disabled", "true");
+            optionList.appendChild(emptyItem);
+            optionList.hidden = false;
+            comboboxInput.setAttribute("aria-expanded", "true");
+            return;
+        }
+
+        options.forEach((option, index) => {
+            const listItem = document.createElement("li");
+            listItem.className = "combobox-option";
+            listItem.id = `snapshot-option-${option.id}`;
+            listItem.setAttribute("role", "option");
+            listItem.setAttribute("data-id", option.id);
+            listItem.innerHTML = `<span class="combobox-option__code">${option.code}</span><span class="combobox-option__name">${option.working_name}</span>`;
+            listItem.addEventListener("mousedown", (event) => {
+                event.preventDefault();
+                selectOption(index);
+            });
+            listItem.addEventListener("mouseenter", () => {
+                setActiveIndex(index);
+            });
+            optionList.appendChild(listItem);
+        });
+
+        optionList.hidden = false;
+        comboboxInput.setAttribute("aria-expanded", "true");
+    }
+
+    function setActiveIndex(index) {
+        const options = optionList.querySelectorAll(".combobox-option");
+        options.forEach((option, idx) => {
+            if (idx === index) {
+                option.classList.add("combobox-option--active");
+            } else {
+                option.classList.remove("combobox-option--active");
+            }
+        });
+        if (index >= 0 && options[index]) {
+            comboboxInput.setAttribute("aria-activedescendant", options[index].id);
+        } else {
+            comboboxInput.removeAttribute("aria-activedescendant");
+        }
+        activeIndex = index;
+    }
+
+    function selectOption(index) {
+        const option = filteredOptions[index];
+        if (!option) {
+            return;
+        }
+        comboboxInput.value = `${option.code} · ${option.working_name}`;
+        hideOptions();
+        loadModel(option.id);
+    }
+
+    function filterOptions(query) {
+        const normalized = query.trim().toLowerCase();
+        if (!normalized) {
+            filteredOptions = optionData.slice(0, 12);
+            renderOptions(filteredOptions);
+            setActiveIndex(-1);
+            return;
+        }
+        filteredOptions = optionData
+            .filter((option) => {
+                return (
+                    option.code.toLowerCase().includes(normalized) ||
+                    option.working_name.toLowerCase().includes(normalized)
+                );
+            })
+            .slice(0, 12);
+        renderOptions(filteredOptions);
+        setActiveIndex(0);
+    }
+
+    comboboxInput.addEventListener("input", (event) => {
+        const value = event.target.value;
+        filterOptions(value);
+    });
+
+    comboboxInput.addEventListener("keydown", (event) => {
+        switch (event.key) {
+            case "ArrowDown":
+                event.preventDefault();
+                if (optionList.hidden) {
+                    renderOptions(filteredOptions);
+                }
+                setActiveIndex(Math.min(activeIndex + 1, filteredOptions.length - 1));
+                break;
+            case "ArrowUp":
+                event.preventDefault();
+                if (!optionList.hidden) {
+                    setActiveIndex(Math.max(activeIndex - 1, 0));
+                }
+                break;
+            case "Enter":
+                if (activeIndex >= 0 && !optionList.hidden) {
+                    event.preventDefault();
+                    selectOption(activeIndex);
+                }
+                break;
+            case "Escape":
+                hideOptions();
+                break;
+            default:
+                break;
+        }
+    });
+
+    comboboxInput.addEventListener("focus", () => {
+        if (!comboboxInput.value) {
+            filteredOptions = optionData.slice(0, 12);
+        }
+        renderOptions(filteredOptions);
+    });
+
+    comboboxInput.addEventListener("blur", () => {
+        blurTimeout = window.setTimeout(() => {
+            hideOptions();
+        }, 100);
+    });
+
+    optionList.addEventListener("mousedown", () => {
+        if (blurTimeout) {
+            window.clearTimeout(blurTimeout);
+        }
+    });
+
+    clearButton.addEventListener("click", () => {
+        comboboxInput.value = "";
+        comboboxInput.focus();
+        resetView();
+        filteredOptions = optionData.slice(0, 12);
+        renderOptions(filteredOptions);
+    });
+
     resetView();
-    selectEl.addEventListener("change", handleSelection);
+    renderOptions(filteredOptions);
+    hideOptions();
 })();
 </script>
 {% endblock %}

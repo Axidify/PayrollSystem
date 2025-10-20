@@ -398,6 +398,10 @@ def model_snapshot_data(
         raise HTTPException(status_code=404, detail="Model not found")
 
     adjustments = sorted(list(model.compensation_adjustments or []), key=lambda adj: adj.effective_date)
+    total_paid_map = crud.total_paid_by_model(db, [model.id])
+    total_paid = total_paid_map.get(model.id)
+    adhoc_payments = crud.list_adhoc_payments(db, model_id)
+    pending_adhoc = [payment for payment in adhoc_payments if payment.status == "pending"]
     payload = {
         "model": {
             "id": model.id,
@@ -422,6 +426,11 @@ def model_snapshot_data(
             }
             for adjustment in adjustments
         ],
+        "stats": {
+            "total_paid": str(total_paid) if total_paid is not None else None,
+            "adhoc_pending_count": len(pending_adhoc),
+            "adhoc_total_count": len(adhoc_payments),
+        },
     }
     return JSONResponse(content=payload)
 

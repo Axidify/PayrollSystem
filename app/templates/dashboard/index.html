@@ -6,7 +6,47 @@
         <h1 class="page-title">Operations Dashboard</h1>
         <p>At-a-glance metrics for payroll performance and data quality.</p>
     </div>
+    <div class="header-actions">
+        {% if user and user.is_admin() %}
+        <button id="exportAllBtn" class="button">Export All Data (XLSX)</button>
+        {% endif %}
+    </div>
 </section>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const btn = document.getElementById('exportAllBtn');
+    if (!btn) return;
+    btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        btn.textContent = 'Preparing export...';
+        try {
+            const resp = await fetch('/dashboard/export-xlsx', { credentials: 'same-origin' });
+            if (!resp.ok) {
+                throw new Error(`Export failed: ${resp.status}`);
+            }
+            const blob = await resp.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            // Try to derive filename from Content-Disposition
+            const cd = resp.headers.get('Content-Disposition') || '';
+            const match = /filename=(.+)$/i.exec(cd);
+            const filename = match ? match[1].replace(/"/g, '') : 'payroll_export.xlsx';
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+        } catch (err) {
+            console.error(err);
+            alert('Export failed. Check console for details.');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Export All Data (XLSX)';
+        }
+    });
+});
+</script>
 
 <section class="metrics">
     {% if summary.latest_run_is_current_month %}

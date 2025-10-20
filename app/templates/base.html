@@ -104,6 +104,18 @@
     document.querySelectorAll('.nav-link').forEach(link => {
         link.addEventListener('click', closeMenu);
     });
+
+    document.querySelectorAll('.nav-group__toggle').forEach(toggle => {
+        const group = toggle.closest('.nav-group');
+        if (!group) {
+            return;
+        }
+        toggle.addEventListener('click', (event) => {
+            event.stopPropagation();
+            const expanded = group.classList.toggle('nav-group--expanded');
+            toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        });
+    });
 </script>
 </body>
 </html>

@@ -5,4 +5,7 @@
 - [ ] Verify export manually or via quick check
 - [x] Replace typo'd `.gitigore` with correct `.gitignore`
 - [x] Add entries for `.venv-1/`, generated exports, and local SQLite database
-- [ ] Implement model snapshot selector view with auto-populated adjustments
+- [x] Implement model snapshot selector view with auto-populated adjustments
+- [x] Polish snapshot card styling and spacing
+- [x] Upgrade model picker to accessible combobox with search
+- [x] Surface quick stats (total paid, pending ad hoc) on snapshot view
