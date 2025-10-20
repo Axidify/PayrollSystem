@@ -1014,11 +1014,16 @@ def download_export(run_id: int, file_type: str, db: Session = Depends(get_sessi
             "Frequency",
             "Amount",
             "Status",
+            "Crypto Wallet",
             "Notes & Actions",
         ])
         
         # Write data rows
         for payout in payouts:
+            model_wallet = ""
+            if payout.model and getattr(payout.model, "crypto_wallet", None):
+                model_wallet = payout.model.crypto_wallet
+
             writer.writerow([
                 payout.pay_date.strftime("%m/%d/%Y") if payout.pay_date else "",
                 payout.code or "",
@@ -1027,6 +1032,7 @@ def download_export(run_id: int, file_type: str, db: Session = Depends(get_sessi
                 payout.payment_frequency.title() if payout.payment_frequency else "",
                 f"{payout.amount:.2f}" if payout.amount else "",
                 payout.status.replace("_", " ").title() if payout.status else "",
+                model_wallet,
                 payout.notes or "",
             ])
         
