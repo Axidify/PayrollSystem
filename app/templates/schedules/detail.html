@@ -50,7 +50,6 @@
     </div>
     <div class="metric">
         <div class="metric-title">Export Folder</div>
-        <div class="metric-value metric-value-small">{{ export_dir }}</div>
     </div>
 </section>
 
@@ -157,6 +156,13 @@
             </tr>
             {% endfor %}
         </tbody>
+        <tfoot>
+            <tr>
+                <th colspan="6" style="text-align: right;">Total</th>
+                <th>{{ run.currency }} {{ payout_total|money }}</th>
+                <th colspan="2"></th>
+            </tr>
+        </tfoot>
     </table>
     
     <!-- Bulk Update Form - positioned at bottom -->
