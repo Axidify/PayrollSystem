@@ -19,21 +19,57 @@
     <div class="mobile-menu-overlay" id="mobileMenuOverlay"></div>
     
     <aside class="sidebar" id="sidebar">
-        <div class="brand">PAYROLL DESK</div>
+        <div class="sidebar__brand">
+            <div class="sidebar__logo">PD</div>
+            <div class="sidebar__brand-text">
+                <span class="sidebar__title">Payroll Desk</span>
+                <span class="sidebar__tagline">Run payroll with confidence</span>
+            </div>
+        </div>
         <nav class="nav-links">
             {% set path = request.url.path %}
-            <a class="nav-link {% if path == '/' or path.startswith('/dashboard') %}active{% endif %}" href="/dashboard">Dashboard</a>
-            <a class="nav-link {% if path.startswith('/models') %}active{% endif %}" href="/models">Models</a>
-            <a class="nav-link {% if path.startswith('/schedules') %}active{% endif %}" href="/schedules">Schedules</a>
-            <hr style="margin: 15px 0; border: none; border-top: 1px solid #555;">
+            <p class="sidebar__section-label">Workspace</p>
+            <a class="nav-link {% if path == '/' or path.startswith('/dashboard') %}active{% endif %}" href="/dashboard">
+                <span class="nav-link__icon">📊</span>
+                <span class="nav-link__text">Dashboard</span>
+            </a>
+            <a class="nav-link {% if path.startswith('/models') %}active{% endif %}" href="/models">
+                <span class="nav-link__icon">🧾</span>
+                <span class="nav-link__text">Models</span>
+            </a>
+            <a class="nav-link {% if path.startswith('/schedules') %}active{% endif %}" href="/schedules">
+                <span class="nav-link__icon">🗓️</span>
+                <span class="nav-link__text">Schedules</span>
+            </a>
             {% if user %}
-            <a class="nav-link {% if path.startswith('/profile') %}active{% endif %}" href="/profile">👤 Profile</a>
+            <p class="sidebar__section-label">Account</p>
+            <a class="nav-link {% if path.startswith('/profile') %}active{% endif %}" href="/profile">
+                <span class="nav-link__icon">👤</span>
+                <span class="nav-link__text">Profile</span>
+            </a>
             {% if user.is_admin() %}
-            <a class="nav-link {% if path.startswith('/admin') %}active{% endif %}" href="/admin/users">👥 Users (Admin)</a>
+            <a class="nav-link {% if path.startswith('/admin') %}active{% endif %}" href="/admin/users">
+                <span class="nav-link__icon">�️</span>
+                <span class="nav-link__text">User Admin</span>
+            </a>
             {% endif %}
-            <a class="nav-link" href="/logout" style="color: #ff6b6b; margin-top: 15px;">🚪 Logout</a>
             {% endif %}
         </nav>
+        {% if user %}
+        <div class="sidebar__footer">
+            <div class="sidebar__user">
+                <div class="sidebar__avatar">{{ user.username[:2]|upper }}</div>
+                <div class="sidebar__user-details">
+                    <span class="sidebar__user-name">{{ user.username }}</span>
+                    <span class="sidebar__user-role">{{ user.role|title }}</span>
+                </div>
+            </div>
+            <a class="sidebar__logout" href="/logout">
+                <span class="nav-link__icon">🚪</span>
+                <span class="nav-link__text">Logout</span>
+            </a>
+        </div>
+        {% endif %}
     </aside>
     <main class="content">
         {% block content %}{% endblock %}

@@ -39,10 +39,10 @@
         {% endif %}
     </div>
     <div class="run-card__actions">
-        <a class="link-button" href="/schedules/{{ run.id }}">Open</a>
+        <a class="run-card__action-button run-card__action-button--open" href="/schedules/{{ run.id }}">Open</a>
         {% if allow_delete and user_role == 'admin' %}
         <form method="post" action="/schedules/{{ run.id }}/delete" onsubmit="return confirm('Delete this payroll run?');">
-            <button class="link-button danger" type="submit">Delete</button>
+            <button class="run-card__action-button run-card__action-button--delete" type="submit">Delete</button>
         </form>
         {% endif %}
     </div>

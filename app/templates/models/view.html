@@ -71,6 +71,13 @@
             <span class="info-value {{ 'info-value--muted' if not model.crypto_wallet }}">{{ model.crypto_wallet if model.crypto_wallet else 'Not provided' }}</span>
         </div>
     </div>
+    <div class="card-actions card-actions--end card-actions--stack model-actions">
+        {% if user.role == 'admin' %}
+        <a class="button" href="/models/{{ model.id }}/edit">Edit Model</a>
+        <button class="button secondary" type="button" onclick="if(confirm('Delete this model?')) { fetch('/models/{{ model.id }}/delete', { method: 'POST' }).then(() => window.location.href='/models'); }">Delete Model</button>
+        {% endif %}
+        <a class="button secondary" href="/models">Back to Roster</a>
+    </div>
 </section>
 
 {% set adjustments = model.compensation_adjustments or [] %}
@@ -284,16 +291,6 @@
             {% endif %}
         </div>
     </details>
-</section>
-
-<section class="card card--form">
-    <div class="card-actions card-actions--end card-actions--stack">
-        {% if user.role == 'admin' %}
-        <a class="button" href="/models/{{ model.id }}/edit">Edit Model</a>
-        <button class="button secondary" type="button" onclick="if(confirm('Delete this model?')) { fetch('/models/{{ model.id }}/delete', { method: 'POST' }).then(() => window.location.href='/models'); }">Delete Model</button>
-        {% endif %}
-        <a class="button secondary" href="/models">Back to Roster</a>
-    </div>
 </section>
 
 <section class="card card--form table-card">
