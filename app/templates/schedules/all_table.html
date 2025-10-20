@@ -5,7 +5,7 @@
 <section class="page-header">
     <div>
         <h1 class="page-title">All Payroll Runs · Table</h1>
-        <p>Detailed table view of every payroll run recorded for {{ year }}.</p>
+        <p>Detailed table view of every payroll run recorded for {{ scope_label }}.</p>
     </div>
     <div class="header-actions">
         <a class="button secondary" href="/schedules">Back to Dashboard</a>
@@ -20,7 +20,7 @@
     <div class="section-heading">
         <div>
             <h2>Select Year</h2>
-            <p>Switch between archive years using the shortcuts below.</p>
+            <p>Switch between archive years or focus on a specific date range.</p>
         </div>
     </div>
     <div class="year-switch">
@@ -30,6 +30,32 @@
         </a>
         {% endfor %}
     </div>
+    <div class="quick-range-buttons">
+        {% for option in quick_ranges %}
+        <a class="button {% if option.is_active %}active{% else %}secondary{% endif %}" href="{{ option.url }}">
+            {{ option.label }}
+        </a>
+        {% endfor %}
+    </div>
+    <form class="range-filter-form" method="get" action="/schedules/all-table">
+        <input type="hidden" name="year" value="{{ year }}">
+        <div class="range-filter-grid">
+            <label class="range-filter-field">
+                <span>Start date</span>
+                <input type="date" name="start" value="{{ filter_start_value }}">
+            </label>
+            <label class="range-filter-field">
+                <span>End date</span>
+                <input type="date" name="end" value="{{ filter_end_value }}">
+            </label>
+            <div class="range-filter-actions">
+                <button class="button" type="submit">Apply Range</button>
+                {% if filter_active %}
+                <a class="button secondary" href="{{ clear_url }}">Clear</a>
+                {% endif %}
+            </div>
+        </div>
+    </form>
     {% if not has_previous_years %}
     <p class="empty-state" style="margin-top: 16px;">No prior years recorded yet.</p>
     {% endif %}
@@ -39,7 +65,7 @@
     <article class="card stat-card">
         <p class="stat-card__label">Runs Recorded</p>
         <p class="stat-card__value">{{ year_summary.run_count }}</p>
-        <p class="stat-card__hint">In {{ year }}</p>
+        <p class="stat-card__hint">In {{ scope_label }}</p>
     </article>
     <article class="card stat-card">
         <p class="stat-card__label">Total Payout</p>
@@ -66,7 +92,7 @@
 <section class="card table-card">
     <div class="section-heading">
         <div>
-            <h2>Payroll Runs ({{ year }})</h2>
+            <h2>Payroll Runs ({{ scope_label }})</h2>
             <p>{{ year_summary.run_count }} run{% if year_summary.run_count != 1 %}s{% endif %} captured.</p>
         </div>
         <div class="heading-actions">
@@ -122,7 +148,7 @@
         </tbody>
     </table>
     {% else %}
-    <p class="empty-state">No runs were recorded for {{ year }}.</p>
+    <p class="empty-state">No runs were recorded for {{ scope_label }}.</p>
     {% endif %}
 </section>
 {% endblock %}

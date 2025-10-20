@@ -5,7 +5,7 @@ import calendar
 import csv
 import io
 import json
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Sequence
 from pathlib import Path
@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import FileResponse, RedirectResponse, StreamingResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
+from urllib.parse import urlencode
 
 from app import crud
 from app.auth import User
@@ -27,6 +28,81 @@ from app.services import PayrollService
 router = APIRouter(prefix="/schedules", tags=["Schedules"])
 
 DEFAULT_EXPORT_DIR = Path("exports")
+
+QUICK_RANGE_OPTIONS = [
+    {"id": "past_7_days", "label": "Past 7 Days", "days": 7},
+    {"id": "past_30_days", "label": "Past 30 Days", "days": 30},
+    {"id": "past_3_months", "label": "Past 3 Months", "months": 3},
+    {"id": "past_6_months", "label": "Past 6 Months", "months": 6},
+    {"id": "past_1_year", "label": "Past 1 Year", "months": 12},
+]
+
+
+def _parse_date_param(value: str | None, field_label: str) -> date | None:
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").date()
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"{field_label} must be YYYY-MM-DD.") from exc
+
+
+def _subtract_months(anchor: date, months: int) -> date:
+    year = anchor.year
+    month = anchor.month - months
+    day = anchor.day
+    while month <= 0:
+        month += 12
+        year -= 1
+    last_day = calendar.monthrange(year, month)[1]
+    return date(year, month, min(day, last_day))
+
+
+def _resolve_quick_range(identifier: str | None, today: date) -> tuple[date | None, date | None, str | None]:
+    if not identifier:
+        return None, None, None
+    for option in QUICK_RANGE_OPTIONS:
+        if option["id"] != identifier:
+            continue
+        if "days" in option:
+            days = option["days"]
+            start = today - timedelta(days=days - 1)
+            return start, today, option["id"]
+        months = option.get("months", 0)
+        start = _subtract_months(today, months)
+        return start, today, option["id"]
+    return None, None, None
+
+
+def _run_cycle_date(run) -> date:
+    return date(run.target_year, run.target_month, 1)
+
+
+def _within_range(candidate: date, start: date | None, end: date | None) -> bool:
+    if start and candidate < start:
+        return False
+    if end and candidate > end:
+        return False
+    return True
+
+
+def _filter_runs_by_range(runs: Sequence, start: date | None, end: date | None) -> list:
+    filtered: list = []
+    for run in runs:
+        cycle_date = _run_cycle_date(run)
+        if _within_range(cycle_date, start, end):
+            filtered.append(run)
+    return filtered
+
+
+def _format_range_label(start: date | None, end: date | None, fallback: str) -> str:
+    if start and end:
+        return f"{start.strftime('%b %d, %Y')} – {end.strftime('%b %d, %Y')}"
+    if start:
+        return f"Since {start.strftime('%b %d, %Y')}"
+    if end:
+        return f"Through {end.strftime('%b %d, %Y')}"
+    return fallback
 
 
 def _build_run_card(run_obj, zero: Decimal) -> dict[str, object]:
@@ -125,14 +201,10 @@ def _count_unique_models(db: Session, run_ids: list[int]) -> int:
 def _prepare_runs_by_year(db: Session, target_year: int) -> tuple[list, list[int], list]:
     all_runs = crud.list_schedule_runs(db)
 
-    zero = Decimal("0")
     runs_for_year: list = []
     available_years = sorted({run.target_year for run in all_runs}, reverse=True)
 
     for run in all_runs:
-        if run.target_year != target_year:
-            continue
-
         try:
             run.frequency_counts = json.loads(run.summary_frequency_counts)
         except json.JSONDecodeError:
@@ -143,7 +215,8 @@ def _prepare_runs_by_year(db: Session, target_year: int) -> tuple[list, list[int
         run.paid_total = summary.get("paid_total", Decimal("0"))
         run.unpaid_total = summary.get("unpaid_total", Decimal("0"))
         run.frequency_counts = _compute_frequency_counts(db, run.id)
-        runs_for_year.append(run)
+        if run.target_year == target_year:
+            runs_for_year.append(run)
 
     runs_for_year.sort(key=lambda r: (r.target_month, r.created_at), reverse=True)
 
@@ -668,6 +741,9 @@ def list_runs_all(
 def list_runs_all_table(
     request: Request,
     year: int = Query(default=None, description="Target year to display"),
+    start: str | None = Query(default=None, description="Filter start date (YYYY-MM-DD)"),
+    end: str | None = Query(default=None, description="Filter end date (YYYY-MM-DD)"),
+    range: str | None = Query(default=None, description="Quick range identifier"),
     db: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
@@ -676,22 +752,46 @@ def list_runs_all_table(
 
     runs_for_year, available_years, all_runs = _prepare_runs_by_year(db, target_year)
 
-    zero = Decimal("0")
+    start_date = _parse_date_param(start, "Start date")
+    end_date = _parse_date_param(end, "End date")
+    preset_start, preset_end, active_preset = _resolve_quick_range(range, today)
 
-    run_ids = [run.id for run in runs_for_year]
-    total_payout = sum((getattr(run, "summary_total_payout", zero) or zero) for run in runs_for_year)
-    paid_total = sum((getattr(run, "paid_total", zero) or zero) for run in runs_for_year)
-    unpaid_total = sum((getattr(run, "unpaid_total", zero) or zero) for run in runs_for_year)
+    if active_preset:
+        start_date = preset_start
+        end_date = preset_end
+
+    if start_date and end_date and end_date < start_date:
+        raise HTTPException(status_code=400, detail="End date must be on or after start date.")
+
+    filter_active = bool(start_date or end_date)
+
+    if filter_active:
+        display_runs = _filter_runs_by_range(all_runs, start_date, end_date)
+    else:
+        display_runs = runs_for_year
+
+    display_runs = sorted(display_runs, key=lambda run: run.created_at, reverse=True)
+
+    zero = Decimal("0")
+    run_ids = [run.id for run in display_runs]
+    total_payout = sum((getattr(run, "summary_total_payout", zero) or zero) for run in display_runs)
+    paid_total = sum((getattr(run, "paid_total", zero) or zero) for run in display_runs)
+    unpaid_total = sum((getattr(run, "unpaid_total", zero) or zero) for run in display_runs)
     models_paid = _count_unique_models(db, run_ids)
 
     currency = None
-    if runs_for_year:
-        currency = getattr(runs_for_year[0], "currency", None)
-    elif all_runs:
-        currency = getattr(all_runs[0], "currency", None)
+    for run in display_runs:
+        currency = getattr(run, "currency", None)
+        if currency:
+            break
+    if not currency:
+        if runs_for_year:
+            currency = getattr(runs_for_year[0], "currency", None)
+        elif all_runs:
+            currency = getattr(all_runs[0], "currency", None)
 
     year_summary = {
-        "run_count": len(runs_for_year),
+        "run_count": len(display_runs),
         "total_payout": total_payout,
         "paid_total": paid_total,
         "unpaid_total": unpaid_total,
@@ -699,15 +799,52 @@ def list_runs_all_table(
         "currency": currency or "USD",
     }
 
+    base_params: dict[str, object] = {}
+    if target_year:
+        base_params["year"] = target_year
+
+    quick_ranges = []
+    for option in QUICK_RANGE_OPTIONS:
+        params = base_params.copy()
+        params["range"] = option["id"]
+        quick_ranges.append(
+            {
+                "id": option["id"],
+                "label": option["label"],
+                "url": f"/schedules/all-table?{urlencode(params)}",
+                "is_active": option["id"] == active_preset,
+            }
+        )
+
     year_buttons = []
     for yr in available_years:
+        params = {"year": yr}
         year_buttons.append(
             {
                 "label": yr,
-                "url": f"/schedules/all-table?year={yr}",
+                "url": f"/schedules/all-table?{urlencode(params)}",
                 "is_selected": yr == target_year,
             }
         )
+
+    filter_start_value = start_date.isoformat() if start_date else ""
+    filter_end_value = end_date.isoformat() if end_date else ""
+
+    scope_label = _format_range_label(start_date, end_date, str(target_year))
+
+    export_params = base_params.copy()
+    if start_date:
+        export_params["start"] = start_date.isoformat()
+    if end_date:
+        export_params["end"] = end_date.isoformat()
+    if active_preset:
+        export_params["range"] = active_preset
+    export_query = urlencode(export_params)
+    export_url = "/schedules/all-table/export"
+    if export_query:
+        export_url = f"{export_url}?{export_query}"
+
+    clear_url = f"/schedules/all-table?{urlencode(base_params)}" if base_params else "/schedules/all-table"
 
     return templates.TemplateResponse(
         "schedules/all_table.html",
@@ -715,12 +852,19 @@ def list_runs_all_table(
             "request": request,
             "user": user,
             "year": target_year,
-            "runs": runs_for_year,
+            "runs": display_runs,
             "year_summary": year_summary,
             "year_buttons": year_buttons,
             "has_previous_years": len(available_years) > 1,
             "card_view_url": f"/schedules/all?year={target_year}",
-            "export_url": f"/schedules/all-table/export?year={target_year}",
+            "export_url": export_url,
+            "quick_ranges": quick_ranges,
+            "filter_active": filter_active,
+            "filter_start_value": filter_start_value,
+            "filter_end_value": filter_end_value,
+            "active_preset": active_preset,
+            "clear_url": clear_url,
+            "scope_label": scope_label,
         },
     )
 
@@ -728,6 +872,9 @@ def list_runs_all_table(
 @router.get("/all-table/export")
 def export_runs_all_table(
     year: int = Query(default=None, description="Target year to export"),
+    start: str | None = Query(default=None, description="Filter start date (YYYY-MM-DD)"),
+    end: str | None = Query(default=None, description="Filter end date (YYYY-MM-DD)"),
+    range: str | None = Query(default=None, description="Quick range identifier"),
     db: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
@@ -736,19 +883,40 @@ def export_runs_all_table(
 
     runs_for_year, _, all_runs = _prepare_runs_by_year(db, target_year)
 
+    start_date = _parse_date_param(start, "Start date")
+    end_date = _parse_date_param(end, "End date")
+    preset_start, preset_end, active_preset = _resolve_quick_range(range, today)
+
+    if active_preset:
+        start_date = preset_start
+        end_date = preset_end
+
+    if start_date and end_date and end_date < start_date:
+        raise HTTPException(status_code=400, detail="End date must be on or after start date.")
+
+    if start_date or end_date:
+        export_runs = _filter_runs_by_range(all_runs, start_date, end_date)
+    else:
+        export_runs = runs_for_year
+
+    export_runs = sorted(export_runs, key=lambda run: run.created_at, reverse=True)
+
     zero = Decimal("0")
 
-    run_ids = [run.id for run in runs_for_year]
-
     currency = None
-    if runs_for_year:
-        currency = getattr(runs_for_year[0], "currency", None)
-    elif all_runs:
-        currency = getattr(all_runs[0], "currency", None)
+    for run in export_runs:
+        currency = getattr(run, "currency", None)
+        if currency:
+            break
+    if not currency:
+        if runs_for_year:
+            currency = getattr(runs_for_year[0], "currency", None)
+        elif all_runs:
+            currency = getattr(all_runs[0], "currency", None)
     currency = currency or "USD"
 
     rows: list[dict[str, object]] = []
-    for run in runs_for_year:
+    for run in export_runs:
         card = _build_run_card(run, zero)
         frequency_display = _format_frequency_summary(card.get("frequency_counts"))
         rows.append(
@@ -782,10 +950,17 @@ def export_runs_all_table(
     dataframe = pd.DataFrame(rows, columns=columns)
     buffer = io.BytesIO()
     with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-        dataframe.to_excel(writer, sheet_name=f"Runs_{target_year}", index=False)
+        sheet_name = f"Runs_{target_year}" if not (start_date or end_date or active_preset) else "Runs_Filtered"
+        dataframe.to_excel(writer, sheet_name=sheet_name, index=False)
 
     buffer.seek(0)
-    filename = f"payroll_runs_{target_year}.xlsx"
+
+    if start_date or end_date or active_preset:
+        filename_label = _format_range_label(start_date, end_date, str(target_year)).replace(" ", "_").replace("/", "-")
+        filename = f"payroll_runs_{filename_label}.xlsx"
+    else:
+        filename = f"payroll_runs_{target_year}.xlsx"
+
     return StreamingResponse(
         buffer,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

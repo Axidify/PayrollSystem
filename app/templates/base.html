@@ -41,6 +41,10 @@
                 <span class="nav-link__icon">🗓️</span>
                 <span class="nav-link__text">Schedules</span>
             </a>
+            <a class="nav-link {% if path.startswith('/analytics') %}active{% endif %}" href="/analytics">
+                <span class="nav-link__icon">📈</span>
+                <span class="nav-link__text">Analytics</span>
+            </a>
             {% if user %}
             <p class="sidebar__section-label">Account</p>
             <a class="nav-link {% if path.startswith('/profile') %}active{% endif %}" href="/profile">
