@@ -58,6 +58,7 @@
     <div class="header-actions">
         <a class="button secondary" href="{{ view_all_url }}">View All Runs</a>
         <a class="button secondary" href="{{ table_view_url }}">Table View</a>
+        <button class="button secondary" type="button" onclick="openExportModal()">Export Excel</button>
         {% if user.role == 'admin' %}
         <a class="button" href="/schedules/new">Run Payroll</a>
         {% endif %}
@@ -147,16 +148,15 @@
                 <h2>Ad Hoc Payments</h2>
                 <p>{{ monthly_adhoc_summary.count }} recorded for {{ monthly_adhoc_summary.month_label }} · latest {{ monthly_adhoc_summary.latest_pay_date_display or 'n/a' }}</p>
             </div>
-            <div class="adhoc-summary-chips">
-                {% for item in monthly_adhoc_summary.status_display %}
-                <span class="adhoc-summary-chip adhoc-summary-chip--{{ item.key }}">
-                    {{ item.label }} · {{ item.count }}
-                    {% if item.amount > 0 %}
-                    <span class="adhoc-summary-chip__amount">{{ monthly_adhoc_summary.currency }} {{ '%.2f'|format(item.amount) }}</span>
-                    {% endif %}
-                </span>
-                {% endfor %}
+        </div>
+        <div class="adhoc-highlight__status-grid">
+            {% for item in monthly_adhoc_summary.status_display %}
+            <div class="adhoc-highlight__status-card adhoc-highlight__status-card--{{ item.key }}">
+                <span class="adhoc-highlight__status-label">{{ item.label }}</span>
+                <span class="adhoc-highlight__status-count">{{ item.count }} payment{% if item.count != 1 %}s{% endif %}</span>
+                <span class="adhoc-highlight__status-amount">{{ monthly_adhoc_summary.currency }} {{ '%.2f'|format(item.amount or 0) }}</span>
             </div>
+            {% endfor %}
         </div>
         <div class="adhoc-highlight__totals">
             <div>
@@ -171,33 +171,11 @@
                 <span class="adhoc-highlight__label">Paid</span>
                 <span class="adhoc-highlight__value">{{ monthly_adhoc_summary.currency }} {{ '%.2f'|format(monthly_adhoc_summary.paid_total or 0) }}</span>
             </div>
-        </div>
-        {% if user.role == 'admin' and monthly_adhoc_summary.count == 1 and monthly_adhoc_summary.models_impacted == 1 and monthly_adhoc_single %}
-        {% set schedules_return_url = '/schedules' %}
-        {% if filters.month %}
-            {% set schedules_return_url = schedules_return_url + '?month=' + filters.month %}
-        {% endif %}
-        <div class="adhoc-highlight__actions">
-            <span class="adhoc-highlight__label adhoc-highlight__label--inline">Update Status</span>
-            <div class="adhoc-highlight__buttons">
-                <form action="/models/{{ monthly_adhoc_single.model_id }}/adhoc-payments/{{ monthly_adhoc_single.id }}/status" method="post">
-                    <input name="action" type="hidden" value="mark_pending" />
-                    <input name="return_url" type="hidden" value="{{ schedules_return_url }}" />
-                    <button class="adhoc-action-button adhoc-action-button--round adhoc-action-button--pending" type="submit" {% if monthly_adhoc_single.status == 'pending' %}disabled{% endif %}>Set Pending</button>
-                </form>
-                <form action="/models/{{ monthly_adhoc_single.model_id }}/adhoc-payments/{{ monthly_adhoc_single.id }}/status" method="post">
-                    <input name="action" type="hidden" value="mark_paid" />
-                    <input name="return_url" type="hidden" value="{{ schedules_return_url }}" />
-                    <button class="adhoc-action-button adhoc-action-button--round adhoc-action-button--paid" type="submit" {% if monthly_adhoc_single.status == 'paid' %}disabled{% endif %}>Mark Paid</button>
-                </form>
-                <form action="/models/{{ monthly_adhoc_single.model_id }}/adhoc-payments/{{ monthly_adhoc_single.id }}/status" method="post">
-                    <input name="action" type="hidden" value="cancel" />
-                    <input name="return_url" type="hidden" value="{{ schedules_return_url }}" />
-                    <button class="adhoc-action-button adhoc-action-button--round adhoc-action-button--cancel" type="submit" {% if monthly_adhoc_single.status == 'cancelled' %}disabled{% endif %}>Cancel</button>
-                </form>
+            <div>
+                <span class="adhoc-highlight__label">Cancelled</span>
+                <span class="adhoc-highlight__value">{{ monthly_adhoc_summary.currency }} {{ '%.2f'|format(monthly_adhoc_summary.cancelled_total or 0) }}</span>
             </div>
         </div>
-        {% endif %}
     </section>
     {% endif %}
 </div>
@@ -210,6 +188,10 @@
             <p>{{ monthly_adhoc_summary.count }} payment{% if monthly_adhoc_summary.count != 1 %}s{% endif %} impacting {{ monthly_adhoc_summary.models_impacted }} model{% if monthly_adhoc_summary.models_impacted != 1 %}s{% endif %}.</p>
         </div>
     </div>
+    {% set table_return_url = '/schedules' %}
+    {% if filters.month %}
+        {% set table_return_url = table_return_url + '?month=' + filters.month %}
+    {% endif %}
     <div class="data-table-wrapper">
         <table class="data-table">
             <thead>
@@ -220,6 +202,9 @@
                     <th>Status</th>
                     <th>Description</th>
                     <th>Notes</th>
+                    {% if user.role == 'admin' %}
+                    <th class="adhoc-table__status-column">Update Status</th>
+                    {% endif %}
                 </tr>
             </thead>
             <tbody>
@@ -242,6 +227,22 @@
                     </td>
                     <td class="info-value--muted">{{ payment.description or '—' }}</td>
                     <td class="info-value--muted">{{ payment.notes or '—' }}</td>
+                    {% if user.role == 'admin' %}
+                    <td class="adhoc-table__status-cell">
+                        <form class="adhoc-status-form" action="/models/{{ payment.model_id }}/adhoc-payments/{{ payment.id }}/status" method="post">
+                            <input name="return_url" type="hidden" value="{{ table_return_url }}" />
+                            <label class="sr-only" for="status_select_{{ payment.id }}">Update status for {{ payment.model.working_name or payment.model.code }}</label>
+                            <select class="adhoc-status-select" id="status_select_{{ payment.id }}" name="action">
+                                <option value="mark_pending" {% if payment.status == 'pending' %}selected{% endif %}>Pending</option>
+                                <option value="mark_paid" {% if payment.status == 'paid' %}selected{% endif %}>Paid</option>
+                                <option value="cancel" {% if payment.status == 'cancelled' %}selected{% endif %}>Cancelled</option>
+                            </select>
+                            <noscript>
+                                <button class="button secondary" type="submit">Apply</button>
+                            </noscript>
+                        </form>
+                    </td>
+                    {% endif %}
                 </tr>
                 {% endfor %}
             </tbody>
@@ -285,4 +286,96 @@
     {% endif %}
 </section>
 {% endif %}
+
+<div class="modal-overlay" id="exportModalOverlay"></div>
+<div class="modal" id="exportModal" role="dialog" aria-modal="true" aria-labelledby="exportModalTitle">
+    <div class="modal-header">
+        <h2 id="exportModalTitle">Export Dashboard Data</h2>
+        <button class="link-button" type="button" aria-label="Close export dialog" onclick="closeExportModal()">X</button>
+    </div>
+    <p style="margin-top: 0;">
+        Choose the datasets to include in your Excel workbook. Selections apply to the currently viewed month.
+    </p>
+    <form id="exportExcelForm" action="/schedules/export" method="post" class="form" style="margin-top: 16px;">
+        <input name="month" type="hidden" value="{{ export_month_value }}" />
+        <div class="checkbox-row">
+            <input id="export_monthly_summary" name="include_monthly_summary" type="checkbox" value="1" {% if export_defaults.monthly_summary %}checked{% endif %} />
+            <label for="export_monthly_summary">Monthly summary metrics</label>
+        </div>
+        <div class="checkbox-row">
+            <input id="export_run_details" name="include_run_details" type="checkbox" value="1" {% if export_defaults.run_details %}checked{% endif %} />
+            <label for="export_run_details">Run breakdown for selected month</label>
+        </div>
+        <div class="checkbox-row">
+            <input id="export_adhoc_summary" name="include_adhoc_summary" type="checkbox" value="1" {% if export_defaults.adhoc_summary %}checked{% endif %} />
+            <label for="export_adhoc_summary">Ad hoc payment summary</label>
+        </div>
+        <div class="checkbox-row">
+            <input id="export_adhoc_details" name="include_adhoc_details" type="checkbox" value="1" {% if export_defaults.adhoc_details %}checked{% endif %} />
+            <label for="export_adhoc_details">Ad hoc payment details</label>
+        </div>
+        <div class="checkbox-row">
+            <input id="export_recent_runs" name="include_recent_runs" type="checkbox" value="1" {% if export_defaults.recent_runs %}checked{% endif %} />
+            <label for="export_recent_runs">Recent run snapshots</label>
+        </div>
+        <div class="modal-actions">
+            <button class="button" type="submit">Export</button>
+            <button class="button secondary" type="button" onclick="closeExportModal()">Cancel</button>
+        </div>
+    </form>
+</div>
+
+<script>
+function openExportModal() {
+    const overlay = document.getElementById('exportModalOverlay');
+    const modal = document.getElementById('exportModal');
+    if (!modal || !overlay) {
+        return;
+    }
+    overlay.classList.add('active');
+    modal.classList.add('active');
+}
+
+function closeExportModal() {
+    const overlay = document.getElementById('exportModalOverlay');
+    const modal = document.getElementById('exportModal');
+    if (!modal || !overlay) {
+        return;
+    }
+    overlay.classList.remove('active');
+    modal.classList.remove('active');
+}
+
+function validateExportSelection(event) {
+    const form = event.target;
+    const checkboxes = form.querySelectorAll('input[type="checkbox"]');
+    const hasSelection = Array.from(checkboxes).some((checkbox) => checkbox.checked);
+    if (!hasSelection) {
+        event.preventDefault();
+        alert('Select at least one dataset to export.');
+    }
+}
+
+const exportOverlay = document.getElementById('exportModalOverlay');
+if (exportOverlay) {
+    exportOverlay.addEventListener('click', closeExportModal);
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    const exportForm = document.getElementById('exportExcelForm');
+    if (exportForm) {
+        exportForm.addEventListener('submit', validateExportSelection);
+    }
+
+    const statusSelects = document.querySelectorAll('.adhoc-status-select');
+    statusSelects.forEach(function (select) {
+        select.addEventListener('change', function () {
+            const parentForm = select.closest('form');
+            if (parentForm) {
+                parentForm.submit();
+            }
+        });
+    });
+});
+</script>
 {% endblock %}

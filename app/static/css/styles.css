@@ -11,6 +11,18 @@ body {
     box-sizing: border-box;
 }
 
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
 a {
     color: inherit;
 }
@@ -434,46 +446,54 @@ section {
     gap: 20px;
 }
 
-.adhoc-summary-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    justify-content: flex-end;
-    align-items: center;
+
+.adhoc-highlight__status-grid {
+    display: grid;
+    gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
 }
 
-.adhoc-summary-chip {
-    display: inline-flex;
-    align-items: center;
+.adhoc-highlight__status-card {
+    border-radius: 14px;
+    padding: 16px;
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    background: rgba(30, 41, 59, 0.55);
+    display: grid;
     gap: 6px;
-    padding: 6px 12px;
-    border-radius: 999px;
-    background: rgba(148, 163, 184, 0.18);
-    color: #e2e8f0;
+}
+
+.adhoc-highlight__status-card--pending {
+    border-color: rgba(251, 146, 60, 0.45);
+    background: rgba(251, 146, 60, 0.12);
+}
+
+.adhoc-highlight__status-card--paid {
+    border-color: rgba(74, 222, 128, 0.4);
+    background: rgba(74, 222, 128, 0.12);
+}
+
+.adhoc-highlight__status-card--cancelled {
+    border-color: rgba(148, 163, 184, 0.35);
+    background: rgba(148, 163, 184, 0.1);
+}
+
+.adhoc-highlight__status-label {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
     font-size: 0.75rem;
     font-weight: 600;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
+    color: #f8fafc;
 }
 
-.adhoc-summary-chip__amount {
-    font-size: 0.7rem;
-    color: #cbd5e1;
+.adhoc-highlight__status-count {
+    font-size: 0.9rem;
+    color: #e2e8f0;
 }
 
-.adhoc-summary-chip--pending {
-    background: rgba(249, 115, 22, 0.18);
-    color: #fb923c;
-}
-
-.adhoc-summary-chip--paid {
-    background: rgba(34, 197, 94, 0.18);
-    color: #4ade80;
-}
-
-.adhoc-summary-chip--cancelled {
-    background: rgba(148, 163, 184, 0.15);
-    color: #cbd5e1;
+.adhoc-highlight__status-amount {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #f8fafc;
 }
 
 .adhoc-highlight__totals {
@@ -491,39 +511,10 @@ section {
     font-weight: 600;
 }
 
-.adhoc-highlight__label--inline {
-    display: inline-flex;
-    align-items: center;
-    text-transform: none;
-    letter-spacing: 0.02em;
-    color: #cbd5e1;
-    font-size: 0.85rem;
-    margin-right: 12px;
-}
-
 .adhoc-highlight__value {
     font-size: 1.25rem;
     font-weight: 600;
     color: #f8fafc;
-}
-
-.adhoc-highlight__actions {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 12px;
-    padding-top: 6px;
-    border-top: 1px solid rgba(148, 163, 184, 0.12);
-}
-
-.adhoc-highlight__buttons {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-}
-
-.adhoc-highlight__buttons form {
-    margin: 0;
 }
 
 .adhoc-action-button {
@@ -622,27 +613,61 @@ section {
     color: #94a3b8;
 }
 
+.adhoc-table__status-column {
+    width: 180px;
+    text-align: left;
+}
+
+.adhoc-table__status-cell {
+    vertical-align: middle;
+}
+
+.adhoc-status-form {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.adhoc-status-select {
+    appearance: none;
+    background: rgba(148, 163, 184, 0.18);
+    border: 1px solid rgba(148, 163, 184, 0.4);
+    border-radius: 8px;
+    color: #f8fafc;
+    padding: 6px 28px 6px 12px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    position: relative;
+    cursor: pointer;
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.adhoc-status-select:focus {
+    outline: 2px solid rgba(59, 130, 246, 0.6);
+    outline-offset: 2px;
+    background: #f8fafc;
+    color: #0f172a;
+    border-color: rgba(59, 130, 246, 0.6);
+}
+
+.adhoc-status-select:active {
+    background: #f8fafc;
+    color: #0f172a;
+}
+
+.adhoc-status-select option {
+    color: #0f172a;
+}
+
 @media (max-width: 768px) {
-    .adhoc-summary-chips {
-        justify-content: flex-start;
+    .adhoc-highlight__status-grid {
+        grid-template-columns: 1fr;
     }
 
     .adhoc-highlight__totals {
         grid-template-columns: 1fr;
-    }
-
-    .adhoc-highlight__actions {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-
-    .adhoc-highlight__buttons {
-        width: 100%;
-        justify-content: flex-start;
-    }
-
-    .adhoc-highlight__buttons .adhoc-action-button {
-        width: 100%;
     }
 }
 
