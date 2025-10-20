@@ -5,10 +5,9 @@ from datetime import date, datetime
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field, field_validator
-from pydantic import FieldValidationInfo
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
-from app.models import FREQUENCY_ENUM, STATUS_ENUM
+from app.models import ADHOC_PAYMENT_STATUS_ENUM, FREQUENCY_ENUM, STATUS_ENUM
 
 
 class ModelBase(BaseModel):
@@ -30,7 +29,7 @@ class ModelBase(BaseModel):
         return value_title
 
     @field_validator("code", "real_name", "working_name", "payment_method", mode="before")
-    def strip_required_strings(cls, value: Any, info: FieldValidationInfo) -> str:
+    def strip_required_strings(cls, value: Any, info: ValidationInfo) -> str:
         if value is None:
             raise ValueError(f"{info.field_name.replace('_', ' ').title()} is required.")
         value_str = str(value).strip()
@@ -57,8 +56,7 @@ class ModelBase(BaseModel):
     def quantize_amount(cls, value: Decimal) -> Decimal:
         return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ModelCreate(ModelBase):
@@ -89,8 +87,7 @@ class ScheduleRunRead(ScheduleRunBase):
     summary_frequency_counts: str
     created_at: datetime
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PayoutRead(BaseModel):
@@ -104,8 +101,7 @@ class PayoutRead(BaseModel):
     amount: Decimal
     notes: Optional[str]
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ValidationIssueRead(BaseModel):
@@ -114,5 +110,58 @@ class ValidationIssueRead(BaseModel):
     issue: str
     model_id: Optional[int]
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AdhocPaymentBase(BaseModel):
+    pay_date: date
+    amount: Decimal = Field(..., gt=0)
+    description: Optional[str] = Field(None, max_length=255)
+    notes: Optional[str]
+    status: str = Field(default="pending")
+
+    @field_validator("status")
+    def validate_status(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if normalized not in ADHOC_PAYMENT_STATUS_ENUM:
+            raise ValueError("Status must be pending, paid, or cancelled.")
+        return normalized
+
+    @field_validator("amount")
+    def quantize_amount(cls, value: Decimal) -> Decimal:
+        return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AdhocPaymentCreate(AdhocPaymentBase):
+    status: str = "pending"
+
+
+class AdhocPaymentUpdate(BaseModel):
+    pay_date: Optional[date] = None
+    amount: Optional[Decimal] = None
+    description: Optional[str] = Field(None, max_length=255)
+    notes: Optional[str] = None
+    status: Optional[str] = None
+
+    @field_validator("status")
+    def validate_status(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip().lower()
+        if normalized not in ADHOC_PAYMENT_STATUS_ENUM:
+            raise ValueError("Status must be pending, paid, or cancelled.")
+        return normalized
+
+    @field_validator("amount")
+    def quantize_amount(cls, value: Decimal | None) -> Decimal | None:
+        if value is None:
+            return None
+        return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
+class AdhocPaymentRead(AdhocPaymentBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime

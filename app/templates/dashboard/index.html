@@ -23,11 +23,11 @@
     </div>
     <div class="metric">
         <div class="metric-title">Lifetime Paid</div>
-        <div class="metric-value">${{ '%.2f'|format(summary.lifetime_paid) }}</div>
+    <div class="metric-value">${{ summary.lifetime_paid|money }}</div>
     </div>
     <div class="metric">
         <div class="metric-title">Outstanding</div>
-        <div class="metric-value">${{ '%.2f'|format(summary.outstanding_total) }}</div>
+    <div class="metric-value">${{ summary.outstanding_total|money }}</div>
     </div>
     <div class="metric">
         <div class="metric-title">Pending Payouts</div>
@@ -43,11 +43,11 @@
     </div>
     <div class="metric">
         <div class="metric-title">Latest Run Paid</div>
-        <div class="metric-value">${{ '%.2f'|format(summary.latest_run_paid) }}</div>
+    <div class="metric-value">${{ summary.latest_run_paid|money }}</div>
     </div>
     <div class="metric">
         <div class="metric-title">Latest Run Outstanding</div>
-        <div class="metric-value">${{ '%.2f'|format(summary.latest_run_unpaid) }}</div>
+    <div class="metric-value">${{ summary.latest_run_unpaid|money }}</div>
     </div>
     {% if summary.latest_run %}
     <div class="metric" style="grid-column: span 2;">
@@ -79,7 +79,7 @@
                     <td>{{ run.target_year }}-{{ '%02d'|format(run.target_month) }}</td>
                     <td>{{ run.created_at.strftime('%m/%d/%Y') }}</td>
                     <td>{{ run.currency }}</td>
-                    <td>${{ '%.2f'|format(run.summary_total_payout) }}</td>
+                    <td>${{ run.summary_total_payout|money }}</td>
                     <td><a class="link-button" href="/schedules/{{ run.id }}">Open</a></td>
                 </tr>
                 {% else %}
@@ -112,7 +112,7 @@
                             <span class="tag inactive">Inactive</span>
                         {% endif %}
                     </td>
-                    <td>${{ '%.2f'|format(item.total_paid) }}</td>
+                    <td>${{ item.total_paid|money }}</td>
                 </tr>
                 {% else %}
                 <tr>

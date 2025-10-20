@@ -7,6 +7,7 @@ import io
 import json
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Sequence
 from pathlib import Path
 
 import pandas as pd
@@ -19,7 +20,7 @@ from app import crud
 from app.auth import User
 from app.database import get_session
 from app.dependencies import templates
-from app.models import PAYOUT_STATUS_ENUM, Payout
+from app.models import AdhocPayment, PAYOUT_STATUS_ENUM, Payout
 from app.routers.auth import get_current_user, get_admin_user
 from app.services import PayrollService
 
@@ -55,6 +56,44 @@ def _build_run_card(run_obj, zero: Decimal) -> dict[str, object]:
         "status_variant": status_variant,
         "frequency_counts": frequency_counts,
         "currency": getattr(run_obj, "currency", "USD"),
+    }
+
+
+def _summarize_adhoc_payments(payments: Sequence[AdhocPayment]) -> dict[str, object]:
+    zero = Decimal("0")
+    status_keys = ("pending", "paid", "cancelled")
+    status_counts: dict[str, int] = {key: 0 for key in status_keys}
+    amount_by_status: dict[str, Decimal] = {key: zero for key in status_keys}
+    latest_pay_date: date | None = None
+    impacted_models: set[int] = set()
+
+    for payment in payments:
+        status = (payment.status or "pending").lower()
+        if status not in status_counts:
+            status_counts[status] = 0
+            amount_by_status[status] = zero
+        status_counts[status] += 1
+        amount_by_status[status] = amount_by_status[status] + payment.amount
+        if latest_pay_date is None or payment.pay_date > latest_pay_date:
+            latest_pay_date = payment.pay_date
+        impacted_models.add(payment.model_id)
+
+    pending_total = amount_by_status.get("pending", zero)
+    paid_total = amount_by_status.get("paid", zero)
+    cancelled_total = amount_by_status.get("cancelled", zero)
+    total_amount = pending_total + paid_total
+
+    return {
+        "count": len(payments),
+        "models_impacted": len(impacted_models),
+        "status_counts": status_counts,
+        "amount_by_status": amount_by_status,
+        "total_amount": total_amount,
+        "pending_total": pending_total,
+        "paid_total": paid_total,
+        "cancelled_total": cancelled_total,
+        "latest_pay_date": latest_pay_date,
+        "has_pending": pending_total > zero,
     }
 
 
@@ -121,13 +160,10 @@ def _format_frequency_summary(frequency_counts: dict[str, int] | None) -> str:
     return ", ".join(parts)
 
 
-@router.get("/")
-def list_runs(
-    request: Request,
-    month: str | None = None,
-    db: Session = Depends(get_session),
-    user: User = Depends(get_current_user),
-):
+def _gather_dashboard_data(db: Session, month: str | None) -> dict[str, object]:
+    """Collect the datasets needed to render or export the schedules dashboard."""
+
+    today = date.today()
     normalized_month = month.strip() if month else ""
     month_candidate: tuple[int, int] | None = None
 
@@ -162,7 +198,7 @@ def list_runs(
 
     sorted_keys = sorted(grouped_runs.keys(), reverse=True)
 
-    selected_key = None
+    selected_key: tuple[int, int] | None = None
     if month_candidate and month_candidate in grouped_runs:
         selected_key = month_candidate
     elif month_candidate and month_candidate not in grouped_runs:
@@ -228,10 +264,47 @@ def list_runs(
         selected_month_value = f"{selected_key[0]:04d}-{selected_key[1]:02d}"
         selected_month_label = datetime(selected_key[0], selected_key[1], 1).strftime("%B %Y")
 
+    if selected_key:
+        adhoc_year, adhoc_month = selected_key
+    elif month_candidate:
+        adhoc_year, adhoc_month = month_candidate
+    else:
+        adhoc_year, adhoc_month = today.year, today.month
+
+    monthly_adhoc_payments = crud.list_adhoc_payments_for_month(db, adhoc_year, adhoc_month)
+    monthly_adhoc_single = monthly_adhoc_payments[0] if len(monthly_adhoc_payments) == 1 else None
+    monthly_adhoc_summary = _summarize_adhoc_payments(monthly_adhoc_payments)
+    adhoc_month_label = datetime(adhoc_year, adhoc_month, 1).strftime("%B %Y")
+    adhoc_month_value = f"{adhoc_year:04d}-{adhoc_month:02d}"
+    latest_pay_date = monthly_adhoc_summary.get("latest_pay_date")
+    monthly_adhoc_summary.update(
+        {
+            "month_label": adhoc_month_label,
+            "month_value": adhoc_month_value,
+            "currency": monthly_summary.get("currency") or "USD",
+            "latest_pay_date_display": latest_pay_date.strftime("%b %d, %Y") if latest_pay_date else "",
+        }
+    )
+    status_display = []
+    for status_key, status_label in (
+        ("pending", "Pending"),
+        ("paid", "Paid"),
+        ("cancelled", "Cancelled"),
+    ):
+        status_display.append(
+            {
+                "key": status_key,
+                "label": status_label,
+                "count": monthly_adhoc_summary["status_counts"].get(status_key, 0),
+                "amount": monthly_adhoc_summary["amount_by_status"].get(status_key, zero),
+            }
+        )
+    monthly_adhoc_summary["status_display"] = status_display
+    monthly_adhoc_summary["has_payments"] = monthly_adhoc_summary["count"] > 0
+
     for option in month_options:
         option["is_selected"] = option["value"] == selected_month_value
 
-    today = date.today()
     today_key = (today.year, today.month)
 
     sorted_runs = sorted(
@@ -275,26 +348,270 @@ def list_runs(
             }
         )
 
+    return {
+        "today": today,
+        "current_year": current_year,
+        "all_runs": all_runs,
+        "selected_runs": selected_runs,
+        "selected_run_cards": selected_run_cards,
+        "recent_run_cards": recent_cards,
+        "monthly_summary": monthly_summary,
+        "monthly_frequency": monthly_frequency,
+        "month_options": month_options,
+        "selected_month_value": selected_month_value,
+        "selected_month_label": selected_month_label,
+        "monthly_adhoc_summary": monthly_adhoc_summary,
+        "monthly_adhoc_payments": monthly_adhoc_payments,
+        "monthly_adhoc_single": monthly_adhoc_single,
+        "year_overview": year_overview,
+        "filters": {"month": selected_month_value},
+        "selected_key": selected_key,
+        "month_candidate": month_candidate,
+        "normalized_month": normalized_month,
+    }
+
+
+@router.get("/")
+def list_runs(
+    request: Request,
+    month: str | None = None,
+    db: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    dashboard = _gather_dashboard_data(db, month)
+
+    export_defaults = {
+        "monthly_summary": True,
+        "run_details": bool(dashboard["selected_runs"]),
+        "adhoc_summary": dashboard["monthly_adhoc_summary"].get("count", 0) > 0,
+        "adhoc_details": dashboard["monthly_adhoc_summary"].get("count", 0) > 0,
+        "recent_runs": bool(dashboard["recent_run_cards"]),
+    }
+
     return templates.TemplateResponse(
         "schedules/list.html",
         {
             "request": request,
             "user": user,
-            "runs": selected_runs,
-            "filters": {
-                "month": selected_month_value,
-            },
-            "month_options": month_options,
-            "selected_month_label": selected_month_label,
-            "monthly_summary": monthly_summary,
-            "monthly_frequency": monthly_frequency,
-            "has_runs": bool(all_runs),
-            "recent_runs": recent_cards,
-            "selected_run_cards": selected_run_cards,
-            "year_overview": year_overview,
-            "view_all_url": f"/schedules/all?year={current_year}",
-            "table_view_url": f"/schedules/all-table?year={current_year}",
+            "runs": dashboard["selected_runs"],
+            "filters": dashboard["filters"],
+            "month_options": dashboard["month_options"],
+            "selected_month_label": dashboard["selected_month_label"],
+            "monthly_summary": dashboard["monthly_summary"],
+            "monthly_frequency": dashboard["monthly_frequency"],
+            "has_runs": bool(dashboard["all_runs"]),
+            "recent_runs": dashboard["recent_run_cards"],
+            "selected_run_cards": dashboard["selected_run_cards"],
+            "monthly_adhoc_summary": dashboard["monthly_adhoc_summary"],
+            "monthly_adhoc_payments": dashboard["monthly_adhoc_payments"],
+            "monthly_adhoc_single": dashboard["monthly_adhoc_single"],
+            "year_overview": dashboard["year_overview"],
+            "view_all_url": f"/schedules/all?year={dashboard['current_year']}",
+            "table_view_url": f"/schedules/all-table?year={dashboard['current_year']}",
+            "export_defaults": export_defaults,
+            "export_month_value": dashboard["selected_month_value"],
         },
+    )
+
+
+@router.post("/export")
+def export_dashboard_excel(
+    month: str | None = Form(None),
+    include_monthly_summary: bool = Form(False),
+    include_run_details: bool = Form(False),
+    include_adhoc_summary: bool = Form(False),
+    include_adhoc_details: bool = Form(False),
+    include_recent_runs: bool = Form(False),
+    db: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    dashboard = _gather_dashboard_data(db, month)
+
+    options = {
+        "monthly_summary": include_monthly_summary,
+        "run_details": include_run_details,
+        "adhoc_summary": include_adhoc_summary,
+        "adhoc_details": include_adhoc_details,
+        "recent_runs": include_recent_runs,
+    }
+
+    if not any(options.values()):
+        raise HTTPException(status_code=400, detail="Select at least one dataset to export.")
+
+    def _decimal_to_float(value: Decimal | float | int | None) -> float:
+        if value is None:
+            return 0.0
+        if isinstance(value, Decimal):
+            return float(value)
+        return float(value)
+
+    buffer = io.BytesIO()
+    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+        if options["monthly_summary"]:
+            summary = dashboard["monthly_summary"]
+            summary_rows = [
+                {"Metric": "Month", "Value": dashboard["selected_month_label"] or "Latest Visible"},
+                {"Metric": "Run Count", "Value": summary.get("run_count", 0)},
+                {"Metric": "Models Paid", "Value": summary.get("models_paid", 0)},
+                {"Metric": "Total Payout", "Value": _decimal_to_float(summary.get("total_payout"))},
+                {"Metric": "Paid Total", "Value": _decimal_to_float(summary.get("paid_total"))},
+                {"Metric": "Outstanding", "Value": _decimal_to_float(summary.get("unpaid_total"))},
+                {"Metric": "Currency", "Value": summary.get("currency", "USD")},
+            ]
+            summary_df = pd.DataFrame(summary_rows)
+            summary_df.to_excel(writer, sheet_name="Monthly Summary", index=False)
+
+            frequency = dashboard["monthly_frequency"] or {}
+            if frequency:
+                freq_rows = [
+                    {
+                        "Frequency": (label or "unspecified").replace("_", " ").title(),
+                        "Models": count,
+                    }
+                    for label, count in sorted(frequency.items())
+                ]
+                freq_df = pd.DataFrame(freq_rows)
+                freq_df.to_excel(
+                    writer,
+                    sheet_name="Monthly Summary",
+                    index=False,
+                    startrow=len(summary_rows) + 2,
+                )
+
+        if options["run_details"]:
+            run_rows: list[dict[str, object]] = []
+            for card in dashboard["selected_run_cards"]:
+                run_rows.append(
+                    {
+                        "Run ID": card.get("id"),
+                        "Cycle": card.get("cycle"),
+                        "Created": card.get("created"),
+                        "Status": card.get("status"),
+                        "Currency": card.get("currency"),
+                        "Models Paid": card.get("models_paid"),
+                        "Total Payout": _decimal_to_float(card.get("total")),
+                        "Paid": _decimal_to_float(card.get("paid")),
+                        "Outstanding": _decimal_to_float(card.get("outstanding")),
+                        "Frequency Mix": _format_frequency_summary(card.get("frequency_counts")),
+                    }
+                )
+            run_columns = [
+                "Run ID",
+                "Cycle",
+                "Created",
+                "Status",
+                "Currency",
+                "Models Paid",
+                "Total Payout",
+                "Paid",
+                "Outstanding",
+                "Frequency Mix",
+            ]
+            runs_df = pd.DataFrame(run_rows, columns=run_columns)
+            runs_df.to_excel(writer, sheet_name="Runs", index=False)
+
+        if options["adhoc_summary"]:
+            adhoc_summary = dashboard["monthly_adhoc_summary"]
+            adhoc_rows = [
+                {"Metric": "Month", "Value": adhoc_summary.get("month_label", "")},
+                {"Metric": "Payments", "Value": adhoc_summary.get("count", 0)},
+                {"Metric": "Models Impacted", "Value": adhoc_summary.get("models_impacted", 0)},
+                {"Metric": "Total Amount", "Value": _decimal_to_float(adhoc_summary.get("total_amount"))},
+                {"Metric": "Pending Amount", "Value": _decimal_to_float(adhoc_summary.get("pending_total"))},
+                {"Metric": "Paid Amount", "Value": _decimal_to_float(adhoc_summary.get("paid_total"))},
+                {"Metric": "Cancelled Amount", "Value": _decimal_to_float(adhoc_summary.get("cancelled_total"))},
+                {"Metric": "Latest Pay Date", "Value": adhoc_summary.get("latest_pay_date_display", "")},
+            ]
+            adhoc_df = pd.DataFrame(adhoc_rows)
+            adhoc_df.to_excel(writer, sheet_name="Adhoc Summary", index=False)
+
+            status_rows = [
+                {
+                    "Status": item.get("label"),
+                    "Count": item.get("count", 0),
+                    "Amount": _decimal_to_float(item.get("amount")),
+                }
+                for item in adhoc_summary.get("status_display", [])
+            ]
+            if status_rows:
+                status_df = pd.DataFrame(status_rows)
+                status_df.to_excel(
+                    writer,
+                    sheet_name="Adhoc Summary",
+                    index=False,
+                    startrow=len(adhoc_rows) + 2,
+                )
+
+        if options["adhoc_details"]:
+            adhoc_detail_rows: list[dict[str, object]] = []
+            for payment in dashboard["monthly_adhoc_payments"]:
+                model_code = getattr(payment.model, "code", "") if getattr(payment, "model", None) else ""
+                model_name = getattr(payment.model, "working_name", "") if getattr(payment, "model", None) else ""
+                adhoc_detail_rows.append(
+                    {
+                        "Model Code": model_code,
+                        "Model Name": model_name,
+                        "Pay Date": payment.pay_date.strftime("%m/%d/%Y") if payment.pay_date else "",
+                        "Amount": _decimal_to_float(payment.amount if hasattr(payment, "amount") else 0),
+                        "Status": (payment.status or "").replace("_", " ").title(),
+                        "Description": payment.description or "",
+                        "Notes": payment.notes or "",
+                    }
+                )
+            adhoc_detail_columns = [
+                "Model Code",
+                "Model Name",
+                "Pay Date",
+                "Amount",
+                "Status",
+                "Description",
+                "Notes",
+            ]
+            adhoc_details_df = pd.DataFrame(adhoc_detail_rows, columns=adhoc_detail_columns)
+            adhoc_details_df.to_excel(writer, sheet_name="Adhoc Payments", index=False)
+
+        if options["recent_runs"]:
+            recent_rows: list[dict[str, object]] = []
+            for card in dashboard["recent_run_cards"]:
+                recent_rows.append(
+                    {
+                        "Run ID": card.get("id"),
+                        "Cycle": card.get("cycle"),
+                        "Created": card.get("created"),
+                        "Status": card.get("status"),
+                        "Currency": card.get("currency"),
+                        "Models Paid": card.get("models_paid"),
+                        "Total Payout": _decimal_to_float(card.get("total")),
+                        "Paid": _decimal_to_float(card.get("paid")),
+                        "Outstanding": _decimal_to_float(card.get("outstanding")),
+                    }
+                )
+            recent_columns = [
+                "Run ID",
+                "Cycle",
+                "Created",
+                "Status",
+                "Currency",
+                "Models Paid",
+                "Total Payout",
+                "Paid",
+                "Outstanding",
+            ]
+            recent_df = pd.DataFrame(recent_rows, columns=recent_columns)
+            recent_df.to_excel(writer, sheet_name="Recent Runs", index=False)
+
+    buffer.seek(0)
+
+    month_slug = dashboard["selected_month_value"] or dashboard["selected_month_label"]
+    if not month_slug:
+        month_slug = dashboard["today"].strftime("%Y-%m")
+    safe_slug = month_slug.replace(" ", "_").replace("/", "-")
+    filename = f"schedules_dashboard_{safe_slug}.xlsx"
+
+    return StreamingResponse(
+        buffer,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
 
 

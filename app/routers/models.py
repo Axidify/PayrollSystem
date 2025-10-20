@@ -19,7 +19,7 @@ from app.database import get_session
 from app.dependencies import templates
 from app.models import FREQUENCY_ENUM, STATUS_ENUM, Payout
 from app.routers.auth import get_current_user, get_admin_user
-from app.schemas import ModelCreate, ModelUpdate
+from app.schemas import AdhocPaymentCreate, AdhocPaymentUpdate, ModelCreate, ModelUpdate
 from app.importers.excel_importer import ImportOptions, RunOptions, import_from_excel
 
 router = APIRouter(prefix="/models", tags=["Models"])
@@ -102,6 +102,15 @@ def _build_model_list_context(
     context.setdefault("import_auto_runs", True)
     context.setdefault("import_update_existing", True)
     return context
+
+
+def _redirect_to_model(model_id: int, **params: str) -> RedirectResponse:
+    filtered = {key: value for key, value in params.items() if value}
+    query = urlencode(filtered)
+    url = f"/models/{model_id}"
+    if query:
+        url = f"{url}?{query}"
+    return RedirectResponse(url=url, status_code=303)
 
 
 def _parse_adjustment_rows(
@@ -341,6 +350,9 @@ def view_model(model_id: int, request: Request, db: Session = Depends(get_sessio
     
     # Get paid payouts (unified source of truth for payment history)
     paid_payouts = crud.get_paid_payouts_for_model(db, model_id)
+    adhoc_payments = crud.list_adhoc_payments(db, model_id)
+    error_message = request.query_params.get("error")
+    success_message = request.query_params.get("success")
     
     return templates.TemplateResponse(
         "models/view.html",
@@ -350,8 +362,116 @@ def view_model(model_id: int, request: Request, db: Session = Depends(get_sessio
             "model": model,
             "total_paid": total_paid,
             "paid_payouts": paid_payouts,
+            "adhoc_payments": adhoc_payments,
+            "error_message": error_message,
+            "success_message": success_message,
         },
     )
+
+
+@router.post("/{model_id}/adhoc-payments")
+def create_adhoc_payment(
+    model_id: int,
+    pay_date: str = Form(...),
+    amount: str = Form(...),
+    description: str = Form(""),
+    notes: str = Form(""),
+    db: Session = Depends(get_session),
+    user: User = Depends(get_admin_user),
+):
+    model = crud.get_model(db, model_id)
+    if not model:
+        raise HTTPException(status_code=404, detail="Model not found")
+
+    pay_date_value = (pay_date or "").strip()
+    if not pay_date_value:
+        return _redirect_to_model(model_id, error="Pay date is required.")
+    try:
+        pay_date_obj = date.fromisoformat(pay_date_value)
+    except ValueError:
+        return _redirect_to_model(model_id, error="Pay date must use YYYY-MM-DD format.")
+
+    amount_value = (amount or "").strip()
+    if not amount_value:
+        return _redirect_to_model(model_id, error="Amount is required.")
+    try:
+        amount_decimal = Decimal(amount_value)
+    except (InvalidOperation, ValueError):
+        return _redirect_to_model(model_id, error="Amount must be a valid number.")
+    if amount_decimal <= 0:
+        return _redirect_to_model(model_id, error="Amount must be greater than zero.")
+    amount_decimal = amount_decimal.quantize(_DECIMAL_PLACES)
+
+    payload = AdhocPaymentCreate(
+        pay_date=pay_date_obj,
+        amount=amount_decimal,
+        description=description.strip() if description else None,
+        notes=notes.strip() if notes else None,
+    )
+    crud.create_adhoc_payment(db, model, payload)
+    return _redirect_to_model(model_id, success="Ad hoc payment created.")
+
+
+@router.post("/{model_id}/adhoc-payments/{payment_id}/status")
+def update_adhoc_payment_status(
+    model_id: int,
+    payment_id: int,
+    action: str = Form(...),
+    return_url: str | None = Form(None),
+    db: Session = Depends(get_session),
+    user: User = Depends(get_admin_user),
+):
+    payment = crud.get_adhoc_payment(db, payment_id)
+    if not payment or payment.model_id != model_id:
+        raise HTTPException(status_code=404, detail="Ad hoc payment not found")
+
+    action_map = {
+        "mark_paid": ("paid", "Ad hoc payment marked as paid."),
+        "mark_pending": ("pending", "Ad hoc payment set to pending."),
+        "cancel": ("cancelled", "Ad hoc payment cancelled."),
+    }
+
+    target = action_map.get(action)
+    if not target:
+        raise HTTPException(status_code=400, detail="Unsupported action")
+
+    status, message = target
+    crud.set_adhoc_payment_status(db, payment, status)
+    if return_url:
+        return RedirectResponse(url=return_url, status_code=303)
+    return _redirect_to_model(model_id, success=message)
+
+
+@router.post("/{model_id}/adhoc-payments/{payment_id}/notes")
+def update_adhoc_payment_notes(
+    model_id: int,
+    payment_id: int,
+    notes: str = Form(""),
+    db: Session = Depends(get_session),
+    user: User = Depends(get_admin_user),
+):
+    payment = crud.get_adhoc_payment(db, payment_id)
+    if not payment or payment.model_id != model_id:
+        raise HTTPException(status_code=404, detail="Ad hoc payment not found")
+
+    update_payload = AdhocPaymentUpdate(notes=notes.strip() if notes else None)
+    crud.update_adhoc_payment(db, payment, update_payload)
+    return _redirect_to_model(model_id, success="Notes updated.")
+
+
+@router.post("/{model_id}/adhoc-payments/{payment_id}/delete")
+def delete_adhoc_payment(
+    model_id: int,
+    payment_id: int,
+    db: Session = Depends(get_session),
+    user: User = Depends(get_admin_user),
+):
+    payment = crud.get_adhoc_payment(db, payment_id)
+    if not payment or payment.model_id != model_id:
+        raise HTTPException(status_code=404, detail="Ad hoc payment not found")
+
+    crud.delete_adhoc_payment(db, payment)
+    return _redirect_to_model(model_id, success="Ad hoc payment deleted.")
 
 
 @router.get("/{model_id}/edit")

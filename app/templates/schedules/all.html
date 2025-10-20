@@ -13,16 +13,16 @@
     <div class="run-card__metrics">
         <div>
             <span class="run-card__metric-label">Total</span>
-            <span class="run-card__metric-value">{{ run.currency or 'USD' }} {{ '%.2f'|format(run.total or 0) }}</span>
+            <span class="run-card__metric-value">{{ run.currency or 'USD' }} {{ run.total|money }}</span>
         </div>
         <div>
             <span class="run-card__metric-label">Paid</span>
-            <span class="run-card__metric-value">{{ run.currency or 'USD' }} {{ '%.2f'|format(run.paid or 0) }}</span>
+            <span class="run-card__metric-value">{{ run.currency or 'USD' }} {{ run.paid|money }}</span>
         </div>
         {% set outstanding_value = run.outstanding or 0 %}
         <div>
             <span class="run-card__metric-label">Outstanding</span>
-            <span class="run-card__metric-value{% if outstanding_value > 0 %} is-warning{% endif %}">{{ run.currency or 'USD' }} {{ '%.2f'|format(outstanding_value) }}</span>
+            <span class="run-card__metric-value{% if outstanding_value > 0 %} is-warning{% endif %}">{{ run.currency or 'USD' }} {{ outstanding_value|money }}</span>
         </div>
         <div>
             <span class="run-card__metric-label">Models Paid</span>

@@ -64,7 +64,7 @@
     </div>
     <div class="card metric">
         <div class="metric-title">Lifetime Paid (USD)</div>
-        <div class="metric-value">${{ '%.2f'|format(total_paid_sum) }}</div>
+    <div class="metric-value">${{ total_paid_sum|money }}</div>
     </div>
 </section>
 
@@ -141,10 +141,10 @@
                 <td>{{ model.working_name }}</td>
                 <td>{{ model.start_date.strftime('%m/%d/%Y') if model.start_date else '' }}</td>
                 <td>{{ model.payment_frequency|title }}</td>
-                <td>${{ '%.2f' | format(model.amount_monthly) }}</td>
+                <td>${{ model.amount_monthly|money }}</td>
                 <td>{{ model.payment_method }}</td>
                 {% set lifetime = totals_map.get(model.id, 0) %}
-                <td>${{ '%.2f' | format(lifetime) }}</td>
+                <td>${{ lifetime|money }}</td>
                 <td class="actions">
                     <a class="link-button" href="/models/{{ model.id }}">View</a>
                     {% if user.role == 'admin' %}

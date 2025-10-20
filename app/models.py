@@ -25,6 +25,7 @@ from app.database import Base
 STATUS_ENUM = ("Active", "Inactive")
 FREQUENCY_ENUM = ("weekly", "biweekly", "monthly")
 PAYOUT_STATUS_ENUM = ("paid", "on_hold", "not_paid")
+ADHOC_PAYMENT_STATUS_ENUM = ("pending", "paid", "cancelled")
 
 
 class Model(Base):
@@ -53,6 +54,10 @@ class Model(Base):
         back_populates="model",
         cascade="all, delete-orphan",
         order_by="ModelCompensationAdjustment.effective_date",
+    )
+    adhoc_payments: Mapped[list["AdhocPayment"]] = relationship(
+        back_populates="model",
+        cascade="all, delete-orphan",
     )
 
     __table_args__ = (
@@ -146,4 +151,30 @@ class ModelCompensationAdjustment(Base):
     __table_args__ = (
         UniqueConstraint("model_id", "effective_date", name="uq_adjustment_model_date"),
         CheckConstraint("amount_monthly > 0", name="ck_adjustment_amount_positive"),
+    )
+
+
+class AdhocPayment(Base):
+    __tablename__ = "adhoc_payments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    model_id: Mapped[int] = mapped_column(ForeignKey("models.id", ondelete="CASCADE"), nullable=False, index=True)
+    pay_date: Mapped[date] = mapped_column(Date, nullable=False)
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    description: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.now, onupdate=datetime.now, nullable=False
+    )
+
+    model: Mapped[Model] = relationship(back_populates="adhoc_payments")
+
+    __table_args__ = (
+        CheckConstraint("amount > 0", name="ck_adhoc_payments_amount_positive"),
+        CheckConstraint(
+            "status IN ('pending', 'paid', 'cancelled')",
+            name="ck_adhoc_payments_status_valid",
+        ),
     )

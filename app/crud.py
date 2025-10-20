@@ -8,11 +8,11 @@ from typing import Iterable, Sequence
 import json
 
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.core.payroll import ModelRecord, ValidationMessage
-from app.models import Model, ModelCompensationAdjustment, Payout, ScheduleRun, ValidationIssue
-from app.schemas import ModelCreate, ModelUpdate
+from app.models import AdhocPayment, Model, ModelCompensationAdjustment, Payout, ScheduleRun, ValidationIssue
+from app.schemas import AdhocPaymentCreate, AdhocPaymentUpdate, ModelCreate, ModelUpdate
 
 
 def list_models(
@@ -51,7 +51,7 @@ def get_model_by_code(db: Session, code: str) -> Model | None:
 
 
 def create_model(db: Session, payload: ModelCreate) -> Model:
-    model = Model(**payload.dict())
+    model = Model(**payload.model_dump())
     db.add(model)
     db.flush()
 
@@ -78,7 +78,7 @@ def create_model(db: Session, payload: ModelCreate) -> Model:
 
 
 def update_model(db: Session, model: Model, payload: ModelUpdate) -> Model:
-    for key, value in payload.dict().items():
+    for key, value in payload.model_dump().items():
         setattr(model, key, value)
     model.updated_at = datetime.now()
     db.add(model)
@@ -540,3 +540,94 @@ def find_duplicate_payouts(
         .where(Payout.status == status)
     )
     return db.execute(stmt).scalars().all()
+
+
+def list_adhoc_payments(
+    db: Session,
+    model_id: int,
+    status: str | None = None,
+) -> Sequence[AdhocPayment]:
+    stmt = select(AdhocPayment).where(AdhocPayment.model_id == model_id)
+    if status:
+        stmt = stmt.where(AdhocPayment.status == status)
+    stmt = stmt.order_by(AdhocPayment.pay_date.desc(), AdhocPayment.id.desc())
+    return db.execute(stmt).scalars().all()
+
+
+def list_adhoc_payments_for_month(
+    db: Session,
+    year: int,
+    month: int,
+    status: str | None = None,
+) -> Sequence[AdhocPayment]:
+    if month < 1 or month > 12:
+        raise ValueError("month must be in 1..12")
+
+    month_start = date(year, month, 1)
+    if month == 12:
+        next_month_start = date(year + 1, 1, 1)
+    else:
+        next_month_start = date(year, month + 1, 1)
+
+    stmt = (
+        select(AdhocPayment)
+        .options(selectinload(AdhocPayment.model))
+        .where(AdhocPayment.pay_date >= month_start)
+        .where(AdhocPayment.pay_date < next_month_start)
+    )
+    if status:
+        stmt = stmt.where(AdhocPayment.status == status)
+    stmt = stmt.order_by(AdhocPayment.pay_date.asc(), AdhocPayment.id.asc())
+    return db.execute(stmt).scalars().all()
+
+
+def get_adhoc_payment(db: Session, payment_id: int) -> AdhocPayment | None:
+    return db.get(AdhocPayment, payment_id)
+
+
+def create_adhoc_payment(db: Session, model: Model, payload: AdhocPaymentCreate) -> AdhocPayment:
+    payment = AdhocPayment(
+        model_id=model.id,
+        pay_date=payload.pay_date,
+        amount=payload.amount,
+        description=(payload.description.strip() if payload.description else None),
+        notes=(payload.notes.strip() if payload.notes else None),
+        status=payload.status.lower(),
+    )
+    db.add(payment)
+    db.commit()
+    db.refresh(payment)
+    return payment
+
+
+def update_adhoc_payment(db: Session, payment: AdhocPayment, payload: AdhocPaymentUpdate) -> AdhocPayment:
+    data = payload.model_dump(exclude_unset=True)
+    for field, value in data.items():
+        if field in {"description", "notes"}:
+            normalized = value.strip() if isinstance(value, str) else None
+            setattr(payment, field, normalized or None)
+        elif field == "status" and value is not None:
+            setattr(payment, field, value.lower())
+        else:
+            setattr(payment, field, value)
+    payment.updated_at = datetime.now()
+    db.add(payment)
+    db.commit()
+    db.refresh(payment)
+    return payment
+
+
+def delete_adhoc_payment(db: Session, payment: AdhocPayment) -> None:
+    db.delete(payment)
+    db.commit()
+
+
+def set_adhoc_payment_status(db: Session, payment: AdhocPayment, status: str, notes: str | None = None) -> AdhocPayment:
+    payment.status = status.lower()
+    if notes is not None:
+        payment.notes = notes.strip() or None
+    payment.updated_at = datetime.now()
+    db.add(payment)
+    db.commit()
+    db.refresh(payment)
+    return payment

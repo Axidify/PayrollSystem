@@ -43,17 +43,17 @@
     </article>
     <article class="card stat-card">
         <p class="stat-card__label">Total Payout</p>
-        <p class="stat-card__value">{{ year_summary.currency }} {{ '%.2f'|format(year_summary.total_payout or 0) }}</p>
+    <p class="stat-card__value">{{ year_summary.currency }} {{ year_summary.total_payout|money }}</p>
         <p class="stat-card__hint">Across all runs</p>
     </article>
     <article class="card stat-card">
         <p class="stat-card__label">Paid</p>
-        <p class="stat-card__value">{{ year_summary.currency }} {{ '%.2f'|format(year_summary.paid_total or 0) }}</p>
+    <p class="stat-card__value">{{ year_summary.currency }} {{ year_summary.paid_total|money }}</p>
         <p class="stat-card__hint">Completed payouts</p>
     </article>
     <article class="card stat-card">
         <p class="stat-card__label">Outstanding</p>
-        <p class="stat-card__value{% if year_summary.unpaid_total > 0 %} is-warning{% endif %}">{{ year_summary.currency }} {{ '%.2f'|format(year_summary.unpaid_total or 0) }}</p>
+    <p class="stat-card__value{% if year_summary.unpaid_total > 0 %} is-warning{% endif %}">{{ year_summary.currency }} {{ year_summary.unpaid_total|money }}</p>
         <p class="stat-card__hint">Pending balances</p>
     </article>
     <article class="card stat-card">
@@ -97,9 +97,9 @@
                 <td>{{ '%02d/%04d'|format(run.target_month, run.target_year) }}</td>
                 <td>{{ run.currency }}</td>
                 <td>{{ run.summary_models_paid }}</td>
-                <td>{{ year_summary.currency }} {{ '%.2f'|format(run.summary_total_payout or 0) }}</td>
-                <td>{{ year_summary.currency }} {{ '%.2f'|format(run.paid_total or 0) }}</td>
-                <td>{{ year_summary.currency }} {{ '%.2f'|format(run.unpaid_total or 0) }}</td>
+                <td>{{ year_summary.currency }} {{ run.summary_total_payout|money }}</td>
+                <td>{{ year_summary.currency }} {{ run.paid_total|money }}</td>
+                <td>{{ year_summary.currency }} {{ run.unpaid_total|money }}</td>
                 <td>
                     {% if run.frequency_counts %}
                         {% for name, count in run.frequency_counts|dictsort %}

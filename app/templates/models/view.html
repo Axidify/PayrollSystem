@@ -64,7 +64,7 @@
         </div>
         <div class="info-field">
             <span class="info-label">Monthly Amount (USD)</span>
-            <span class="info-value">${{ '%.2f'|format(model.amount_monthly) }}</span>
+            <span class="info-value">${{ model.amount_monthly|money }}</span>
         </div>
         <div class="info-field span-all">
             <span class="info-label">Crypto Wallet Address</span>
@@ -94,7 +94,7 @@
                 </span>
                 <span class="adjustments-summary-text">
                     {% if adjustments_count and latest_adjustment %}
-                        Latest {{ latest_adjustment.effective_date.strftime('%b %d, %Y') }} · ${{ '%.2f'|format(latest_adjustment.amount_monthly) }}
+                        Latest {{ latest_adjustment.effective_date.strftime('%b %d, %Y') }} · ${{ latest_adjustment.amount_monthly|money }}
                     {% endif %}
                 </span>
             </span>
@@ -114,7 +114,7 @@
                         {% for adjustment in adjustments %}
                         <tr>
                             <td>{{ adjustment.effective_date.strftime('%m/%d/%Y') }}</td>
-                            <td class="info-value">${{ '%.2f'|format(adjustment.amount_monthly) }}</td>
+                            <td class="info-value">${{ adjustment.amount_monthly|money }}</td>
                             <td class="info-value--muted">{{ adjustment.notes or '—' }}</td>
                         </tr>
                         {% endfor %}
@@ -135,7 +135,7 @@
     <div class="info-grid two-column">
         <div class="info-field">
             <span class="info-label">Total Paid (USD)</span>
-            <span class="info-value">${{ '%.2f'|format(total_paid) }}</span>
+            <span class="info-value">${{ total_paid|money }}</span>
         </div>
         <div class="info-field">
             <span class="info-label">Created</span>
@@ -164,7 +164,7 @@
                     {% if pending_count %}
                         {{ pending_count }} pending
                     {% elif latest_payment %}
-                        Latest {{ latest_payment.pay_date.strftime('%b %d, %Y') }} · ${{ '%.2f'|format(latest_payment.amount) }}
+                        Latest {{ latest_payment.pay_date.strftime('%b %d, %Y') }} · ${{ latest_payment.amount|money }}
                     {% endif %}
                 </span>
             </span>
@@ -230,7 +230,7 @@
                         {% for payment in adhoc_payments %}
                         <tr>
                             <td>{{ payment.pay_date.strftime('%m/%d/%Y') }}</td>
-                            <td class="info-value">${{ '%.2f'|format(payment.amount) }}</td>
+                            <td class="info-value">${{ payment.amount|money }}</td>
                             <td>
                                 {% if payment.status == 'paid' %}
                                     <span class="status-chip status-chip--active">Paid</span>
@@ -245,30 +245,30 @@
                                 <div class="info-value--muted">{{ payment.notes or '—' }}</div>
                                 {% if user.role == 'admin' %}
                                 <details class="notes-editor">
-                                    <summary>Edit notes</summary>
+                                    <summary class="adhoc-action-summary">Edit notes</summary>
                                     <form action="/models/{{ model.id }}/adhoc-payments/{{ payment.id }}/notes" method="post">
                                         <textarea name="notes" rows="2" placeholder="Update notes">{{ payment.notes or '' }}</textarea>
-                                        <button class="link-button" type="submit">Save</button>
+                                        <button class="adhoc-action-button adhoc-action-button--save" type="submit">Save</button>
                                     </form>
                                 </details>
                                 {% endif %}
                             </td>
                             {% if user.role == 'admin' %}
-                            <td class="actions actions--compact">
+                            <td class="actions actions--compact adhoc-table-actions">
                                 <form action="/models/{{ model.id }}/adhoc-payments/{{ payment.id }}/status" method="post">
                                     <input name="action" type="hidden" value="mark_paid" />
-                                    <button class="link-button" type="submit" {% if payment.status == 'paid' %}disabled{% endif %}>Mark Paid</button>
+                                    <button class="adhoc-action-button adhoc-action-button--paid" type="submit" {% if payment.status == 'paid' %}disabled{% endif %}>Mark Paid</button>
                                 </form>
                                 <form action="/models/{{ model.id }}/adhoc-payments/{{ payment.id }}/status" method="post">
                                     <input name="action" type="hidden" value="mark_pending" />
-                                    <button class="link-button" type="submit" {% if payment.status == 'pending' %}disabled{% endif %}>Set Pending</button>
+                                    <button class="adhoc-action-button adhoc-action-button--pending" type="submit" {% if payment.status == 'pending' %}disabled{% endif %}>Set Pending</button>
                                 </form>
                                 <form action="/models/{{ model.id }}/adhoc-payments/{{ payment.id }}/status" method="post">
                                     <input name="action" type="hidden" value="cancel" />
-                                    <button class="link-button" type="submit" {% if payment.status == 'cancelled' %}disabled{% endif %}>Cancel</button>
+                                    <button class="adhoc-action-button adhoc-action-button--cancel" type="submit" {% if payment.status == 'cancelled' %}disabled{% endif %}>Cancel</button>
                                 </form>
                                 <form action="/models/{{ model.id }}/adhoc-payments/{{ payment.id }}/delete" method="post" onsubmit="return confirm('Delete this ad hoc payment?');">
-                                    <button class="link-button" type="submit">Delete</button>
+                                    <button class="adhoc-action-button adhoc-action-button--danger" type="submit">Delete</button>
                                 </form>
                             </td>
                             {% endif %}
@@ -324,7 +324,7 @@
                     <td>{{ payout.working_name }}</td>
                     <td>{{ payout.payment_method }}</td>
                     <td>{{ payout.payment_frequency|title }}</td>
-                    <td class="info-value">${{ '%.2f'|format(payout.amount) }}</td>
+                    <td class="info-value">${{ payout.amount|money }}</td>
                     <td>
                         {% if payout.status == 'paid' %}
                             <span class="status-chip status-chip--active">Paid</span>

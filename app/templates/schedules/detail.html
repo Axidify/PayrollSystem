@@ -14,11 +14,11 @@
 <section class="metrics">
     <div class="metric">
         <div class="metric-title">Paid This Run</div>
-        <div class="metric-value">{{ '%.2f'|format(summary.paid_total) }}</div>
+    <div class="metric-value">{{ summary.paid_total|money }}</div>
     </div>
     <div class="metric">
         <div class="metric-title">Unpaid This Run</div>
-        <div class="metric-value">{{ '%.2f'|format(summary.unpaid_total) }}</div>
+    <div class="metric-value">{{ summary.unpaid_total|money }}</div>
     </div>
     <div class="metric">
         <div class="metric-title">Models Paid</div>
@@ -26,7 +26,7 @@
     </div>
     <div class="metric">
         <div class="metric-title">Lifetime Paid</div>
-        <div class="metric-value">{{ '%.2f'|format(summary.overall_paid) }}</div>
+    <div class="metric-value">{{ summary.overall_paid|money }}</div>
     </div>
     <div class="metric">
         <div class="metric-title">Status Mix</div>
@@ -135,7 +135,7 @@
                 <td>{{ payout.working_name }}</td>
                 <td>{{ payout.payment_method }}</td>
                 <td>{{ payout.payment_frequency|title }}</td>
-                <td>{{ '%.2f'|format(payout.amount) }}</td>
+                <td>{{ payout.amount|money }}</td>
                 <td>
                     <span class="status-badge status-{{ payout.status }}">{{ payout.status.replace('_', ' ')|title }}</span>
                 </td>

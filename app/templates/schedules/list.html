@@ -13,16 +13,16 @@
     <div class="run-card__metrics">
         <div>
             <span class="run-card__metric-label">Total</span>
-            <span class="run-card__metric-value">{{ run.currency or 'USD' }} {{ '%.2f'|format(run.total or 0) }}</span>
+            <span class="run-card__metric-value">{{ run.currency or 'USD' }} {{ run.total|money }}</span>
         </div>
         <div>
             <span class="run-card__metric-label">Paid</span>
-            <span class="run-card__metric-value">{{ run.currency or 'USD' }} {{ '%.2f'|format(run.paid or 0) }}</span>
+            <span class="run-card__metric-value">{{ run.currency or 'USD' }} {{ run.paid|money }}</span>
         </div>
         {% set outstanding_value = run.outstanding or 0 %}
         <div>
             <span class="run-card__metric-label">Outstanding</span>
-            <span class="run-card__metric-value{% if outstanding_value > 0 %} is-warning{% endif %}">{{ run.currency or 'USD' }} {{ '%.2f'|format(outstanding_value) }}</span>
+            <span class="run-card__metric-value{% if outstanding_value > 0 %} is-warning{% endif %}">{{ run.currency or 'USD' }} {{ outstanding_value|money }}</span>
         </div>
         <div>
             <span class="run-card__metric-label">Models Paid</span>
@@ -98,17 +98,17 @@
     </article>
     <article class="card stat-card">
         <p class="stat-card__label">Total Payout</p>
-        <p class="stat-card__value">{{ monthly_summary.currency or 'USD' }} {{ '%.2f'|format(monthly_summary.total_payout or 0) }}</p>
+    <p class="stat-card__value">{{ monthly_summary.currency or 'USD' }} {{ monthly_summary.total_payout|money }}</p>
         <p class="stat-card__hint">All runs in view</p>
     </article>
     <article class="card stat-card">
         <p class="stat-card__label">Paid</p>
-        <p class="stat-card__value">{{ monthly_summary.currency or 'USD' }} {{ '%.2f'|format(monthly_summary.paid_total or 0) }}</p>
+    <p class="stat-card__value">{{ monthly_summary.currency or 'USD' }} {{ monthly_summary.paid_total|money }}</p>
         <p class="stat-card__hint">Cleared payouts</p>
     </article>
     <article class="card stat-card">
         <p class="stat-card__label">Outstanding</p>
-        <p class="stat-card__value{% if monthly_summary.unpaid_total > 0 %} is-warning{% endif %}">{{ monthly_summary.currency or 'USD' }} {{ '%.2f'|format(monthly_summary.unpaid_total or 0) }}</p>
+    <p class="stat-card__value{% if monthly_summary.unpaid_total > 0 %} is-warning{% endif %}">{{ monthly_summary.currency or 'USD' }} {{ monthly_summary.unpaid_total|money }}</p>
         <p class="stat-card__hint">Pending to pay</p>
     </article>
     <article class="card stat-card">
@@ -118,7 +118,7 @@
     </article>
     <article class="card stat-card">
         <p class="stat-card__label">Ad Hoc ({{ monthly_adhoc_summary.month_label }})</p>
-        <p class="stat-card__value">{{ monthly_adhoc_summary.currency }} {{ '%.2f'|format(monthly_adhoc_summary.total_amount or 0) }}</p>
+    <p class="stat-card__value">{{ monthly_adhoc_summary.currency }} {{ monthly_adhoc_summary.total_amount|money }}</p>
         <p class="stat-card__hint">{{ monthly_adhoc_summary.count }} payment{% if monthly_adhoc_summary.count != 1 %}s{% endif %} · {{ monthly_adhoc_summary.status_counts.pending }} pending</p>
     </article>
 </section>
@@ -154,26 +154,26 @@
             <div class="adhoc-highlight__status-card adhoc-highlight__status-card--{{ item.key }}">
                 <span class="adhoc-highlight__status-label">{{ item.label }}</span>
                 <span class="adhoc-highlight__status-count">{{ item.count }} payment{% if item.count != 1 %}s{% endif %}</span>
-                <span class="adhoc-highlight__status-amount">{{ monthly_adhoc_summary.currency }} {{ '%.2f'|format(item.amount or 0) }}</span>
+                <span class="adhoc-highlight__status-amount">{{ monthly_adhoc_summary.currency }} {{ item.amount|money }}</span>
             </div>
             {% endfor %}
         </div>
         <div class="adhoc-highlight__totals">
             <div>
                 <span class="adhoc-highlight__label">Total Recorded</span>
-                <span class="adhoc-highlight__value">{{ monthly_adhoc_summary.currency }} {{ '%.2f'|format(monthly_adhoc_summary.total_amount or 0) }}</span>
+                <span class="adhoc-highlight__value">{{ monthly_adhoc_summary.currency }} {{ monthly_adhoc_summary.total_amount|money }}</span>
             </div>
             <div>
                 <span class="adhoc-highlight__label">Pending</span>
-                <span class="adhoc-highlight__value">{{ monthly_adhoc_summary.currency }} {{ '%.2f'|format(monthly_adhoc_summary.pending_total or 0) }}</span>
+                <span class="adhoc-highlight__value">{{ monthly_adhoc_summary.currency }} {{ monthly_adhoc_summary.pending_total|money }}</span>
             </div>
             <div>
                 <span class="adhoc-highlight__label">Paid</span>
-                <span class="adhoc-highlight__value">{{ monthly_adhoc_summary.currency }} {{ '%.2f'|format(monthly_adhoc_summary.paid_total or 0) }}</span>
+                <span class="adhoc-highlight__value">{{ monthly_adhoc_summary.currency }} {{ monthly_adhoc_summary.paid_total|money }}</span>
             </div>
             <div>
                 <span class="adhoc-highlight__label">Cancelled</span>
-                <span class="adhoc-highlight__value">{{ monthly_adhoc_summary.currency }} {{ '%.2f'|format(monthly_adhoc_summary.cancelled_total or 0) }}</span>
+                <span class="adhoc-highlight__value">{{ monthly_adhoc_summary.currency }} {{ monthly_adhoc_summary.cancelled_total|money }}</span>
             </div>
         </div>
     </section>
@@ -215,7 +215,7 @@
                         <div class="adhoc-table__code">{{ payment.model.code }}</div>
                     </td>
                     <td>{{ payment.pay_date.strftime('%m/%d/%Y') }}</td>
-                    <td class="info-value">{{ monthly_adhoc_summary.currency }} {{ '%.2f'|format(payment.amount) }}</td>
+                    <td class="info-value">{{ monthly_adhoc_summary.currency }} {{ payment.amount|money }}</td>
                     <td>
                         {% if payment.status == 'paid' %}
                         <span class="status-chip status-chip--active">Paid</span>
