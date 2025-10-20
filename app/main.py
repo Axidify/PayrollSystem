@@ -9,7 +9,7 @@ from fastapi import Response
 from app.database import init_db
 from app.routers import admin, auth, dashboard, models, profile, schedules
 
-app = FastAPI(title="Payroll Desk", version="1.0.0")
+app = FastAPI(title="Payroll Desk", version="2.0.0")
 
 app.include_router(auth.router)
 app.include_router(profile.router)
