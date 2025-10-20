@@ -73,7 +73,14 @@
     <form class="filter-bar" method="get">
         <div class="filter-group">
             <label for="code">Code</label>
-            <input id="code" name="code" type="text" placeholder="Search code" value="{{ filters.code }}" />
+            <input id="code" name="code" type="text" placeholder="Search code" value="{{ filters.code }}" list="model-code-options" autocomplete="off" />
+            <datalist id="model-code-options">
+                {% for model in models %}
+                    {% if model.code %}
+                    <option value="{{ model.code }}"></option>
+                    {% endif %}
+                {% endfor %}
+            </datalist>
         </div>
         <div class="filter-group">
             <label for="status">Status</label>
