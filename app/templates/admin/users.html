@@ -166,7 +166,7 @@
                     <span style="color: #10b981;">Active</span>
                     {% endif %}
                 </td>
-                <td>{{ user_item.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td>{{ user_item.created_at|display_datetime or '—' }}</td>
                 <td>
                     <div class="actions">
                         <a href="/admin/users/{{ user_item.id }}/edit" class="btn btn-edit">Edit</a>

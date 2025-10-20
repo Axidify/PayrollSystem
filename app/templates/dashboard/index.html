@@ -102,8 +102,8 @@ document.addEventListener('DOMContentLoaded', function () {
     <div class="metric" style="grid-column: span 2;">
         <div class="metric-title">{{ run_detail_title }}</div>
         <div class="metric-value" style="font-size: 1.1rem;">
-            {{ summary.latest_run.target_year }}-{{ '%02d'|format(summary.latest_run.target_month) }} ·
-            Generated {{ summary.latest_run.created_at.strftime('%m/%d/%Y') }}
+            {{ summary.latest_run.cycle_display }} ·
+            Generated {{ summary.latest_run.created_at|display_date }}
         </div>
     </div>
     {% endif %}
@@ -128,8 +128,8 @@ document.addEventListener('DOMContentLoaded', function () {
             <tbody>
                 {% for run in recent_runs %}
                 <tr>
-                    <td>{{ run.target_year }}-{{ '%02d'|format(run.target_month) }}</td>
-                    <td>{{ run.created_at.strftime('%m/%d/%Y') }}</td>
+                    <td>{{ run.cycle_display }}</td>
+                    <td>{{ run.created_at|display_date }}</td>
                     <td>{{ run.currency }}</td>
                     <td>${{ run.summary_total_payout|money }}</td>
                     <td><a class="link-button" href="/schedules/{{ run.id }}">Open</a></td>
@@ -195,7 +195,7 @@ document.addEventListener('DOMContentLoaded', function () {
             <tbody>
                 {% for payment in pending_adhoc_payments %}
                 <tr>
-                    <td>{{ payment.pay_date.strftime('%m/%d/%Y') }}</td>
+                    <td>{{ payment.pay_date|display_date or '—' }}</td>
                     <td>
                         {% if payment.model_name %}
                             {{ payment.model_name }}

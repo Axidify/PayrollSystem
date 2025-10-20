@@ -3,8 +3,8 @@
 {% block content %}
 <section class="page-header">
     <div>
-        <h1 class="page-title">{{ '%02d/%04d'|format(run.target_month, run.target_year) }} Payroll</h1>
-        <p>Generated {{ run.created_at.strftime('%m/%d/%Y') }} · Currency {{ run.currency }}</p>
+    <h1 class="page-title">{{ run.cycle_display }} Payroll</h1>
+    <p>Generated {{ run.created_at|display_date }} · Currency {{ run.currency }}</p>
     </div>
     <div class="download-links">
         <a class="button" href="/schedules/{{ run.id }}/download/schedule_csv">Export Schedule</a>
@@ -126,7 +126,7 @@
                 <td style="text-align: center;">
                     <input type="checkbox" class="payout-checkbox" value="{{ payout.id }}" onchange="updateBulkSection()">
                 </td>
-                <td>{{ payout.pay_date.strftime('%m/%d/%Y') }}</td>
+                <td>{{ payout.pay_date|display_date }}</td>
                 <td>{{ payout.code }}</td>
                 <td>{{ payout.working_name }}</td>
                 <td>{{ payout.payment_method }}</td>

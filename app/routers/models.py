@@ -17,6 +17,7 @@ from app import crud
 from app.auth import User
 from app.database import get_session
 from app.dependencies import templates
+from app.core.formatting import format_display_date
 from app.models import FREQUENCY_ENUM, STATUS_ENUM, Payout
 from app.routers.auth import get_current_user, get_admin_user
 from app.schemas import AdhocPaymentCreate, AdhocPaymentUpdate, ModelCreate, ModelUpdate
@@ -237,15 +238,15 @@ def export_models_csv(
     )
 
     for model in models:
-        start_date_value = model.start_date.strftime("%m/%d/%Y") if model.start_date else ""
-        
+        start_date_value = format_display_date(model.start_date)
+
         # Get paid payouts for this model
         paid_payouts = crud.get_paid_payouts_for_model(db, model.id)
         
         if paid_payouts:
             # Write one row per payment
             for payout in paid_payouts:
-                pay_date_value = payout.pay_date.strftime("%m/%d/%Y") if payout.pay_date else ""
+                pay_date_value = format_display_date(payout.pay_date)
                 writer.writerow(
                     [
                         model.code,
@@ -410,7 +411,7 @@ def model_snapshot_data(
             "real_name": model.real_name,
             "working_name": model.working_name,
             "start_date": model.start_date.isoformat() if model.start_date else None,
-            "start_date_display": model.start_date.strftime("%b %d, %Y") if model.start_date else None,
+            "start_date_display": format_display_date(model.start_date) or None,
             "payment_method": model.payment_method,
             "payment_frequency": model.payment_frequency,
             "amount_monthly": str(model.amount_monthly),
@@ -420,7 +421,7 @@ def model_snapshot_data(
             {
                 "id": adjustment.id,
                 "effective_date": adjustment.effective_date.isoformat(),
-                "effective_date_display": adjustment.effective_date.strftime("%b %d, %Y"),
+                "effective_date_display": format_display_date(adjustment.effective_date) or None,
                 "amount_monthly": str(adjustment.amount_monthly),
                 "notes": adjustment.notes,
             }

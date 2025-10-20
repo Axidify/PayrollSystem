@@ -7,6 +7,7 @@ from sqlalchemy import select
 
 from app.auth import User
 from app.models import LoginAttempt
+from app.core.formatting import format_display_datetime
 
 # Configuration
 MAX_FAILED_ATTEMPTS = 5
@@ -63,7 +64,8 @@ def is_account_locked(db: Session, username: str) -> tuple[bool, str | None]:
     # Check if account is permanently locked by admin
     if user.is_locked:
         if user.locked_until and user.locked_until > datetime.now():
-            return True, f"Account is locked until {user.locked_until.strftime('%Y-%m-%d %H:%M:%S')}"
+            formatted = format_display_datetime(user.locked_until)
+            return True, f"Account is locked until {formatted}"
         else:
             # Auto-unlock if lockout period has passed
             user.is_locked = False

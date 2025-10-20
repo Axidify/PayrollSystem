@@ -146,7 +146,7 @@
                 </td>
                 <td>{{ model.real_name }}</td>
                 <td>{{ model.working_name }}</td>
-                <td>{{ model.start_date.strftime('%m/%d/%Y') if model.start_date else '' }}</td>
+                <td>{{ model.start_date|display_date }}</td>
                 <td>{{ model.payment_frequency|title }}</td>
                 <td>${{ model.amount_monthly|money }}</td>
                 <td>{{ model.payment_method }}</td>

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import csv
-from datetime import datetime
+from datetime import date, datetime
 from io import StringIO
 from typing import Iterable
 
@@ -14,6 +14,7 @@ from app import crud
 from app.auth import User
 from app.database import get_session
 from app.dependencies import templates
+from app.core.formatting import format_display_date, format_display_datetime
 from app.routers.auth import get_current_user
 from app.models import Model
 from app.exporting import export_full_workbook
@@ -31,6 +32,7 @@ def dashboard(request: Request, db: Session = Depends(get_session), user: User =
             "target_year": latest.target_year,
             "target_month": latest.target_month,
             "created_at": latest.created_at,
+            "cycle_display": format_display_date(date(latest.target_year, latest.target_month, 1)),
         }
     recent_runs_data = []
     for run in crud.recent_schedule_runs(db):
@@ -39,6 +41,7 @@ def dashboard(request: Request, db: Session = Depends(get_session), user: User =
                 "id": run.id,
                 "target_year": run.target_year,
                 "target_month": run.target_month,
+                "cycle_display": format_display_date(date(run.target_year, run.target_month, 1)),
                 "created_at": run.created_at,
                 "currency": run.currency,
                 "summary_total_payout": run.summary_total_payout,
@@ -82,18 +85,12 @@ def dashboard(request: Request, db: Session = Depends(get_session), user: User =
     )
 
 
-def _format_date(value: datetime | None) -> str:
-    if not value:
-        return ""
-    if isinstance(value, datetime):
-        return value.strftime("%Y-%m-%d %H:%M:%S")
-    return value.isoformat()
+def _format_datetime_for_export(value: datetime | None) -> str:
+    return format_display_datetime(value)
 
 
 def _format_simple_date(value) -> str:
-    if not value:
-        return ""
-    return value.strftime("%Y-%m-%d")
+    return format_display_date(value)
 
 
 def _iter_model_export_rows(models: Iterable[Model]) -> Iterable[list[str]]:
@@ -134,8 +131,8 @@ def _iter_model_export_rows(models: Iterable[Model]) -> Iterable[list[str]]:
             model.payment_frequency or "",
             f"{model.amount_monthly:.2f}" if model.amount_monthly is not None else "",
             model.crypto_wallet or "",
-            _format_date(model.created_at),
-            _format_date(model.updated_at),
+            _format_datetime_for_export(model.created_at),
+            _format_datetime_for_export(model.updated_at),
         ]
 
         if not payments:
@@ -150,8 +147,8 @@ def _iter_model_export_rows(models: Iterable[Model]) -> Iterable[list[str]]:
                 payment.status or "",
                 payment.description or "",
                 payment.notes or "",
-                _format_date(payment.created_at),
-                _format_date(payment.updated_at),
+                _format_datetime_for_export(payment.created_at),
+                _format_datetime_for_export(payment.updated_at),
             ]
             yield base_columns + adhoc_columns
 

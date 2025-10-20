@@ -52,7 +52,7 @@
         </div>
         <div class="info-field">
             <span class="info-label">Start Date</span>
-            <span class="info-value">{{ model.start_date.strftime('%m/%d/%Y') if model.start_date else '—' }}</span>
+            <span class="info-value">{{ model.start_date|display_date or '—' }}</span>
         </div>
         <div class="info-field">
             <span class="info-label">Payment Method</span>
@@ -101,7 +101,7 @@
                 </span>
                 <span class="adjustments-summary-text">
                     {% if adjustments_count and latest_adjustment %}
-                        Latest {{ latest_adjustment.effective_date.strftime('%b %d, %Y') }} · ${{ latest_adjustment.amount_monthly|money }}
+                        Latest {{ latest_adjustment.effective_date|display_date }} · ${{ latest_adjustment.amount_monthly|money }}
                     {% endif %}
                 </span>
             </span>
@@ -120,7 +120,7 @@
                     <tbody>
                         {% for adjustment in adjustments %}
                         <tr>
-                            <td>{{ adjustment.effective_date.strftime('%m/%d/%Y') }}</td>
+                            <td>{{ adjustment.effective_date|display_date }}</td>
                             <td class="info-value">${{ adjustment.amount_monthly|money }}</td>
                             <td class="info-value--muted">{{ adjustment.notes or '—' }}</td>
                         </tr>
@@ -146,7 +146,7 @@
         </div>
         <div class="info-field">
             <span class="info-label">Created</span>
-            <span class="info-value">{{ model.created_at.strftime('%m/%d/%Y %I:%M %p') if model.created_at else '—' }}</span>
+            <span class="info-value">{{ model.created_at|display_datetime or '—' }}</span>
         </div>
     </div>
 </section>
@@ -171,7 +171,7 @@
                     {% if pending_count %}
                         {{ pending_count }} pending
                     {% elif latest_payment %}
-                        Latest {{ latest_payment.pay_date.strftime('%b %d, %Y') }} · ${{ latest_payment.amount|money }}
+                        Latest {{ latest_payment.pay_date|display_date }} · ${{ latest_payment.amount|money }}
                     {% endif %}
                 </span>
             </span>
@@ -236,7 +236,7 @@
                     <tbody>
                         {% for payment in adhoc_payments %}
                         <tr>
-                            <td>{{ payment.pay_date.strftime('%m/%d/%Y') }}</td>
+                            <td>{{ payment.pay_date|display_date }}</td>
                             <td class="info-value">${{ payment.amount|money }}</td>
                             <td>
                                 {% if payment.status == 'paid' %}
@@ -316,7 +316,7 @@
             <tbody>
                 {% for payout in paid_payouts %}
                 <tr>
-                    <td>{{ payout.pay_date.strftime('%m/%d/%Y') }}</td>
+                    <td>{{ payout.pay_date|display_date }}</td>
                     <td style="font-weight: 600;">{{ payout.code }}</td>
                     <td>{{ payout.working_name }}</td>
                     <td>{{ payout.payment_method }}</td>

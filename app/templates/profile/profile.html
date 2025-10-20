@@ -124,7 +124,7 @@
     <div class="user-info-section">
         <p>Username: <strong>{{ user.username }}</strong></p>
         <p>Role: <strong>{{ user.role.upper() }}</strong></p>
-        <p>Member Since: <strong>{{ user.created_at.strftime('%B %d, %Y') }}</strong></p>
+    <p>Member Since: <strong>{{ user.created_at|display_date }}</strong></p>
     </div>
 
     {% if error %}

@@ -208,7 +208,7 @@
                         <div class="adhoc-table__model">{{ payment.model.working_name or payment.model.code }}</div>
                         <div class="adhoc-table__code">{{ payment.model.code }}</div>
                     </td>
-                    <td>{{ payment.pay_date.strftime('%m/%d/%Y') }}</td>
+                    <td>{{ payment.pay_date|display_date }}</td>
                     <td class="info-value">{{ monthly_adhoc_summary.currency }} {{ payment.amount|money }}</td>
                     <td>
                         {% if payment.status == 'paid' %}

@@ -71,7 +71,7 @@
                     </span>
                     <span class="adjustments-summary-text" data-adjustments-latest>
                         {% if adjustments_count and latest_adjustment %}
-                            Latest {{ latest_adjustment.effective_date.strftime('%b %d, %Y') }} · ${{ '%.2f'|format(latest_adjustment.amount_monthly) }}
+                            Latest {{ latest_adjustment.effective_date|display_date }} · ${{ '%.2f'|format(latest_adjustment.amount_monthly) }}
                         {% endif %}
                     </span>
                 </span>

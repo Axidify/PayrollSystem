@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.auth import User
 from app.database import get_session
 from app.dependencies import templates
+from app.core.formatting import format_display_date, format_display_datetime
 from app.models import (
     AdhocPayment,
     ModelCompensationAdjustment,
@@ -70,7 +71,7 @@ def _serialize_payouts(items: Iterable[Payout]) -> list[dict[str, object]]:
                 "run_id": payout.schedule_run_id,
                 "code": payout.code,
                 "working_name": payout.working_name,
-                "pay_date": payout.pay_date.isoformat() if payout.pay_date else None,
+                "pay_date": format_display_date(payout.pay_date),
                 "amount": float(payout.amount) if payout.amount is not None else 0.0,
                 "status": payout.status,
                 "payment_method": payout.payment_method,
@@ -86,7 +87,7 @@ def _serialize_adhoc(items: Iterable[AdhocPayment]) -> list[dict[str, object]]:
             {
                 "model_id": record.model_id,
                 "model_code": record.model.code if record.model else None,
-                "pay_date": record.pay_date.isoformat() if record.pay_date else None,
+                "pay_date": format_display_date(record.pay_date),
                 "amount": float(record.amount) if record.amount is not None else 0.0,
                 "status": record.status,
                 "description": record.description,
@@ -102,7 +103,7 @@ def _serialize_adjustments(items: Iterable[ModelCompensationAdjustment]) -> list
             {
                 "model_id": adjustment.model_id,
                 "model_code": adjustment.model.code if adjustment.model else None,
-                "effective_date": adjustment.effective_date.isoformat(),
+                "effective_date": format_display_date(adjustment.effective_date),
                 "amount_monthly": float(adjustment.amount_monthly),
                 "notes": adjustment.notes,
             }
@@ -116,8 +117,8 @@ def _serialize_runs(items: Iterable[ScheduleRun]) -> list[dict[str, object]]:
         rows.append(
             {
                 "run_id": run.id,
-                "cycle": f"{run.target_year}-{run.target_month:02d}",
-                "created_at": run.created_at.isoformat() if run.created_at else None,
+                "cycle": format_display_date(date(run.target_year, run.target_month, 1)),
+                "created_at": format_display_datetime(run.created_at),
                 "currency": run.currency,
                 "models_paid": run.summary_models_paid,
                 "total_payout": float(run.summary_total_payout or 0),
@@ -206,8 +207,10 @@ def analytics_data(
         response["runs"] = _serialize_runs(runs)
 
     meta = {
-        "start": start_date.isoformat(),
-        "end": end_date.isoformat(),
+        "start": format_display_date(start_date),
+        "end": format_display_date(end_date),
+        "start_iso": start_date.isoformat(),
+        "end_iso": end_date.isoformat(),
         "datasets": sorted(response.keys()),
         "counts": {key: len(value) for key, value in response.items()},
         "totals": {

@@ -21,6 +21,7 @@ from app import crud
 from app.auth import User
 from app.database import get_session
 from app.dependencies import templates
+from app.core.formatting import format_display_date
 from app.models import AdhocPayment, PAYOUT_STATUS_ENUM, Payout
 from app.routers.auth import get_current_user, get_admin_user
 from app.services import PayrollService
@@ -97,11 +98,11 @@ def _filter_runs_by_range(runs: Sequence, start: date | None, end: date | None) 
 
 def _format_range_label(start: date | None, end: date | None, fallback: str) -> str:
     if start and end:
-        return f"{start.strftime('%b %d, %Y')} – {end.strftime('%b %d, %Y')}"
+        return f"{format_display_date(start)} – {format_display_date(end)}"
     if start:
-        return f"Since {start.strftime('%b %d, %Y')}"
+        return f"Since {format_display_date(start)}"
     if end:
-        return f"Through {end.strftime('%b %d, %Y')}"
+        return f"Through {format_display_date(end)}"
     return fallback
 
 
@@ -118,12 +119,12 @@ def _build_run_card(run_obj, zero: Decimal) -> dict[str, object]:
     total_value = getattr(run_obj, "summary_total_payout", zero) or zero
     status = "Completed" if outstanding <= zero else "Needs Attention"
     status_variant = "success" if status == "Completed" else "warning"
-    cycle_label = datetime(run_obj.target_year, run_obj.target_month, 1).strftime("%b %Y")
+    cycle_label = format_display_date(date(run_obj.target_year, run_obj.target_month, 1))
 
     return {
         "id": run_obj.id,
         "cycle": cycle_label,
-        "created": run_obj.created_at.strftime("%b %d, %Y"),
+        "created": format_display_date(run_obj.created_at),
         "models_paid": getattr(run_obj, "summary_models_paid", 0) or 0,
         "total": total_value,
         "paid": paid_total_value,
@@ -317,7 +318,7 @@ def _gather_dashboard_data(db: Session, month: str | None) -> dict[str, object]:
     month_options = []
     for year_value, month_value in sorted_keys:
         value = f"{year_value:04d}-{month_value:02d}"
-        label = datetime(year_value, month_value, 1).strftime("%B %Y")
+        label = format_display_date(date(year_value, month_value, 1))
         month_options.append(
             {
                 "value": value,
@@ -328,14 +329,14 @@ def _gather_dashboard_data(db: Session, month: str | None) -> dict[str, object]:
 
     if month_candidate and month_candidate not in grouped_runs:
         value = f"{month_candidate[0]:04d}-{month_candidate[1]:02d}"
-        label = datetime(month_candidate[0], month_candidate[1], 1).strftime("%B %Y")
+        label = format_display_date(date(month_candidate[0], month_candidate[1], 1))
         month_options.insert(0, {"value": value, "label": label, "run_count": 0})
 
     selected_month_value = ""
     selected_month_label = ""
     if selected_key:
         selected_month_value = f"{selected_key[0]:04d}-{selected_key[1]:02d}"
-        selected_month_label = datetime(selected_key[0], selected_key[1], 1).strftime("%B %Y")
+        selected_month_label = format_display_date(date(selected_key[0], selected_key[1], 1))
 
     if selected_key:
         adhoc_year, adhoc_month = selected_key
@@ -347,7 +348,7 @@ def _gather_dashboard_data(db: Session, month: str | None) -> dict[str, object]:
     monthly_adhoc_payments = crud.list_adhoc_payments_for_month(db, adhoc_year, adhoc_month)
     monthly_adhoc_single = monthly_adhoc_payments[0] if len(monthly_adhoc_payments) == 1 else None
     monthly_adhoc_summary = _summarize_adhoc_payments(monthly_adhoc_payments)
-    adhoc_month_label = datetime(adhoc_year, adhoc_month, 1).strftime("%B %Y")
+    adhoc_month_label = format_display_date(date(adhoc_year, adhoc_month, 1))
     adhoc_month_value = f"{adhoc_year:04d}-{adhoc_month:02d}"
     latest_pay_date = monthly_adhoc_summary.get("latest_pay_date")
     monthly_adhoc_summary.update(
@@ -355,7 +356,7 @@ def _gather_dashboard_data(db: Session, month: str | None) -> dict[str, object]:
             "month_label": adhoc_month_label,
             "month_value": adhoc_month_value,
             "currency": monthly_summary.get("currency") or "USD",
-            "latest_pay_date_display": latest_pay_date.strftime("%b %d, %Y") if latest_pay_date else "",
+            "latest_pay_date_display": format_display_date(latest_pay_date),
         }
     )
     status_display = []
@@ -409,7 +410,7 @@ def _gather_dashboard_data(db: Session, month: str | None) -> dict[str, object]:
     year_overview = []
     for month_index in range(1, 13):
         key = (current_year, month_index)
-        month_label = datetime(current_year, month_index, 1).strftime("%b")
+        month_label = format_display_date(date(current_year, month_index, 1))
         count = len(grouped_runs.get(key, []))
         year_overview.append(
             {
@@ -424,7 +425,7 @@ def _gather_dashboard_data(db: Session, month: str | None) -> dict[str, object]:
     return {
         "today": today,
         "current_year": current_year,
-        "current_month_label": today.strftime("%B %Y"),
+        "current_month_label": format_display_date(today),
         "all_runs": all_runs,
         "selected_runs": selected_runs,
         "selected_run_cards": selected_run_cards,
@@ -626,7 +627,7 @@ def export_dashboard_excel(
                     {
                         "Model Code": model_code,
                         "Model Name": model_name,
-                        "Pay Date": payment.pay_date.strftime("%m/%d/%Y") if payment.pay_date else "",
+                        "Pay Date": format_display_date(payment.pay_date),
                         "Amount": _decimal_to_float(payment.amount if hasattr(payment, "amount") else 0),
                         "Status": (payment.status or "").replace("_", " ").title(),
                         "Description": payment.description or "",
@@ -711,7 +712,7 @@ def list_runs_all(
 
     month_totals: list[dict[str, object]] = []
     for month_index in range(1, 13):
-        label = datetime(target_year, month_index, 1).strftime("%b %Y")
+        label = format_display_date(date(target_year, month_index, 1))
         month_value = f"{target_year:04d}-{month_index:02d}"
         count = month_totals_map.get(label, 0)
         month_totals.append(
@@ -1059,6 +1060,8 @@ def view_schedule(
             # Errors are intentionally swallowed here to avoid blocking the user from viewing the run.
             pass
 
+    run.cycle_display = format_display_date(date(run.target_year, run.target_month, 1))
+
     code_filter = code.strip() if code else None
     frequency_filter = frequency if frequency else None
     method_filter = payment_method if payment_method else None
@@ -1088,7 +1091,7 @@ def view_schedule(
     pay_date_options = []
     for day in candidate_days:
         candidate_date = date(run.target_year, run.target_month, day)
-        value = candidate_date.strftime("%m/%d/%Y")
+        value = format_display_date(candidate_date)
         if day == last_day:
             label = f"End of Month ({value})"
         else:
@@ -1201,7 +1204,7 @@ def download_export(run_id: int, file_type: str, db: Session = Depends(get_sessi
                 model_wallet = payout.model.crypto_wallet
 
             writer.writerow([
-                payout.pay_date.strftime("%m/%d/%Y") if payout.pay_date else "",
+                format_display_date(payout.pay_date),
                 payout.code or "",
                 payout.working_name or "",
                 payout.payment_method or "",
