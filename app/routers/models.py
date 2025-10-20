@@ -10,7 +10,7 @@ from typing import Any
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import RedirectResponse, StreamingResponse
+from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
 from app import crud
@@ -163,6 +163,24 @@ def list_models(
 ):
     context = _build_model_list_context(request, user, db, code, status, frequency, payment_method)
     return templates.TemplateResponse("models/list.html", context)
+
+
+@router.get("/snapshot")
+def snapshot_models(
+    request: Request,
+    db: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    models = crud.list_models(db)
+    sorted_models = sorted(models, key=lambda item: ((item.working_name or "").lower(), item.code))
+    return templates.TemplateResponse(
+        "models/snapshot.html",
+        {
+            "request": request,
+            "user": user,
+            "models": sorted_models,
+        },
+    )
 
 
 @router.get("/export")
@@ -367,6 +385,45 @@ def view_model(model_id: int, request: Request, db: Session = Depends(get_sessio
             "success_message": success_message,
         },
     )
+
+
+@router.get("/{model_id}/snapshot.json")
+def model_snapshot_data(
+    model_id: int,
+    db: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    model = crud.get_model(db, model_id)
+    if not model:
+        raise HTTPException(status_code=404, detail="Model not found")
+
+    adjustments = sorted(list(model.compensation_adjustments or []), key=lambda adj: adj.effective_date)
+    payload = {
+        "model": {
+            "id": model.id,
+            "code": model.code,
+            "status": model.status,
+            "real_name": model.real_name,
+            "working_name": model.working_name,
+            "start_date": model.start_date.isoformat() if model.start_date else None,
+            "start_date_display": model.start_date.strftime("%b %d, %Y") if model.start_date else None,
+            "payment_method": model.payment_method,
+            "payment_frequency": model.payment_frequency,
+            "amount_monthly": str(model.amount_monthly),
+            "crypto_wallet": model.crypto_wallet,
+        },
+        "adjustments": [
+            {
+                "id": adjustment.id,
+                "effective_date": adjustment.effective_date.isoformat(),
+                "effective_date_display": adjustment.effective_date.strftime("%b %d, %Y"),
+                "amount_monthly": str(adjustment.amount_monthly),
+                "notes": adjustment.notes,
+            }
+            for adjustment in adjustments
+        ],
+    }
+    return JSONResponse(content=payload)
 
 
 @router.post("/{model_id}/adhoc-payments")

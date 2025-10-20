@@ -399,6 +399,60 @@ section {
     overflow: hidden;
 }
 
+.snapshot-grid {
+    display: grid;
+    gap: 24px;
+    align-items: start;
+}
+
+@media (min-width: 960px) {
+    .snapshot-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 959px) {
+    .snapshot-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.snapshot-card {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    min-height: 100%;
+}
+
+.snapshot-card .card-heading {
+    margin-bottom: 0;
+}
+
+.snapshot-card .form-grid {
+    margin-top: 4px;
+}
+
+.snapshot-card .form-hint {
+    margin-top: 8px;
+}
+
+.snapshot-info {
+    margin-top: 4px;
+    gap: 18px;
+}
+
+.snapshot-info .info-value {
+    font-weight: 600;
+}
+
+.snapshot-select {
+    width: 100%;
+}
+
+.snapshot-card .data-table-wrapper {
+    margin-top: 4px;
+}
+
 @media (max-width: 768px) {
     .card {
         padding: 18px;

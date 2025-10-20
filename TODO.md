@@ -5,3 +5,4 @@
 - [ ] Verify export manually or via quick check
 - [x] Replace typo'd `.gitigore` with correct `.gitignore`
 - [x] Add entries for `.venv-1/`, generated exports, and local SQLite database
+- [ ] Implement model snapshot selector view with auto-populated adjustments

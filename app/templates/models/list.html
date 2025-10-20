@@ -6,7 +6,8 @@
         <h1 class="page-title">Model Roster</h1>
         <p>Maintain active talent, salaries, and payment preferences.</p>
     </div>
-    <div>
+    <div class="header-actions">
+        <a class="button secondary" href="/models/snapshot">Open Snapshot</a>
         {% if user.role == 'admin' %}
         <button class="button secondary" type="button" onclick="openImportModal()">Import Excel</button>
         <a class="button" href="/models/new">Add Model</a>

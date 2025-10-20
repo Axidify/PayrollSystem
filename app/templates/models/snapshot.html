@@ -1,0 +1,295 @@
+{% extends "base.html" %}
+{% block title %}Model Snapshot · Payroll Desk{% endblock %}
+{% block content %}
+<section class="page-header">
+    <div>
+        <h1 class="page-title">Model Snapshot</h1>
+        <p>Preview roster details and upcoming adjustments without leaving the desk.</p>
+    </div>
+    <div class="header-actions">
+        <a class="button secondary" href="/models">Back to Roster</a>
+    </div>
+</section>
+
+<section class="snapshot-grid">
+    <article class="card card--form snapshot-card" aria-labelledby="snapshot-card-heading">
+        <header class="card-heading">
+            <h2 id="snapshot-card-heading">Select Model</h2>
+            <p>Pick a model to load high-level payroll data.</p>
+        </header>
+        <div class="form-grid">
+            <div class="form-row span-all">
+                <label for="snapshot-model">Model</label>
+                <select id="snapshot-model" class="snapshot-select">
+                    <option value="">Choose a model…</option>
+                    {% for item in models %}
+                        <option value="{{ item.id }}">{{ item.code }} · {{ item.working_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <div class="info-grid two-column snapshot-info" id="snapshot-info" hidden>
+            <div class="info-field">
+                <span class="info-label">Status</span>
+                <span class="info-value" data-field="status"></span>
+            </div>
+            <div class="info-field">
+                <span class="info-label">Code</span>
+                <span class="info-value" data-field="code"></span>
+            </div>
+            <div class="info-field">
+                <span class="info-label">Real Name</span>
+                <span class="info-value" data-field="real_name"></span>
+            </div>
+            <div class="info-field">
+                <span class="info-label">Working Name</span>
+                <span class="info-value" data-field="working_name"></span>
+            </div>
+            <div class="info-field">
+                <span class="info-label">Start Date</span>
+                <span class="info-value" data-field="start_date"></span>
+            </div>
+            <div class="info-field">
+                <span class="info-label">Payment Method</span>
+                <span class="info-value" data-field="payment_method"></span>
+            </div>
+            <div class="info-field">
+                <span class="info-label">Payment Frequency</span>
+                <span class="info-value" data-field="payment_frequency"></span>
+            </div>
+            <div class="info-field">
+                <span class="info-label">Monthly Amount (USD)</span>
+                <span class="info-value" data-field="amount_monthly"></span>
+            </div>
+            <div class="info-field span-all">
+                <span class="info-label">Crypto Wallet</span>
+                <span class="info-value info-value--muted" data-field="crypto_wallet"></span>
+            </div>
+        </div>
+    </article>
+
+    <article class="card card--form snapshot-card" aria-labelledby="snapshot-adjustments-heading">
+        <header class="card-heading">
+            <h2 id="snapshot-adjustments-heading">Scheduled Adjustments</h2>
+            <p data-field="adjustment-summary">Select a model to see scheduled adjustments.</p>
+        </header>
+        <div class="data-table-wrapper" id="snapshot-adjustments" hidden>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Effective Date</th>
+                        <th>Monthly Amount</th>
+                        <th>Notes</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+        <p class="form-hint" id="snapshot-empty">Pick a model to see future raises.</p>
+    </article>
+</section>
+
+<script>
+(function () {
+    const selectEl = document.getElementById("snapshot-model");
+    if (!selectEl) {
+        return;
+    }
+
+    const infoContainer = document.getElementById("snapshot-info");
+    const adjustmentsWrapper = document.getElementById("snapshot-adjustments");
+    const adjustmentsBody = adjustmentsWrapper.querySelector("tbody");
+    const emptyMessage = document.getElementById("snapshot-empty");
+    const fields = Array.from(document.querySelectorAll("[data-field]"))
+        .reduce((acc, element) => {
+            acc[element.dataset.field] = element;
+            return acc;
+        }, {});
+
+    const defaultSummary = "Select a model to see scheduled adjustments.";
+    const defaultEmpty = "Pick a model to see future raises.";
+    const currencyFormatter = new Intl.NumberFormat(undefined, {
+        style: "currency",
+        currency: "USD",
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    });
+
+    const infoKeys = [
+        "code",
+        "real_name",
+        "working_name",
+        "start_date",
+        "payment_method",
+        "payment_frequency",
+        "amount_monthly",
+    ];
+
+    function resetView() {
+        infoContainer.hidden = true;
+        adjustmentsWrapper.hidden = true;
+        adjustmentsBody.innerHTML = "";
+        emptyMessage.hidden = false;
+        emptyMessage.textContent = defaultEmpty;
+        const summaryField = fields["adjustment-summary"];
+        if (summaryField) {
+            summaryField.textContent = defaultSummary;
+        }
+        if (fields.status) {
+            fields.status.textContent = "";
+        }
+        infoKeys.forEach((key) => {
+            if (fields[key]) {
+                fields[key].textContent = "—";
+            }
+        });
+        if (fields.crypto_wallet) {
+            fields.crypto_wallet.textContent = "Not provided";
+            fields.crypto_wallet.classList.add("info-value--muted");
+        }
+    }
+
+    function setStatus(status) {
+        if (!fields.status) {
+            return;
+        }
+        if (!status) {
+            fields.status.textContent = "—";
+            return;
+        }
+        const normalized = status.toLowerCase();
+        if (normalized === "active") {
+            fields.status.innerHTML = '<span class="status-chip status-chip--active">Active</span>';
+        } else if (normalized === "inactive") {
+            fields.status.innerHTML = '<span class="status-chip status-chip--inactive">Inactive</span>';
+        } else {
+            fields.status.textContent = status;
+        }
+    }
+
+    function formatCurrency(amount) {
+        const numeric = Number(amount);
+        if (!Number.isFinite(numeric)) {
+            return "—";
+        }
+        return currencyFormatter.format(numeric);
+    }
+
+    function formatFrequency(value) {
+        if (!value) {
+            return "—";
+        }
+        return value.charAt(0).toUpperCase() + value.slice(1);
+    }
+
+    function populateAdjustments(adjustments) {
+        adjustmentsBody.innerHTML = "";
+        if (!adjustments || adjustments.length === 0) {
+            adjustmentsWrapper.hidden = true;
+            emptyMessage.hidden = false;
+            emptyMessage.textContent = "No compensation adjustments captured yet.";
+            if (fields["adjustment-summary"]) {
+                fields["adjustment-summary"].textContent = "No scheduled adjustments yet.";
+            }
+            return;
+        }
+
+        adjustmentsWrapper.hidden = false;
+        emptyMessage.hidden = true;
+
+        adjustments.forEach((item) => {
+            const row = document.createElement("tr");
+
+            const dateCell = document.createElement("td");
+            dateCell.textContent = item.effective_date_display || item.effective_date;
+            row.appendChild(dateCell);
+
+            const amountCell = document.createElement("td");
+            amountCell.classList.add("info-value");
+            amountCell.textContent = formatCurrency(item.amount_monthly);
+            row.appendChild(amountCell);
+
+            const notesCell = document.createElement("td");
+            notesCell.classList.add("info-value--muted");
+            notesCell.textContent = item.notes ? item.notes : "—";
+            row.appendChild(notesCell);
+
+            adjustmentsBody.appendChild(row);
+        });
+
+        const latest = adjustments[adjustments.length - 1];
+        if (fields["adjustment-summary"]) {
+            fields["adjustment-summary"].textContent = `${adjustments.length} scheduled · latest ${latest.effective_date_display} · ${formatCurrency(latest.amount_monthly)}`;
+        }
+    }
+
+    async function handleSelection() {
+        const modelId = selectEl.value;
+        if (!modelId) {
+            resetView();
+            return;
+        }
+
+        if (fields["adjustment-summary"]) {
+            fields["adjustment-summary"].textContent = "Loading model details…";
+        }
+        emptyMessage.hidden = true;
+        adjustmentsWrapper.hidden = true;
+
+        try {
+            const response = await fetch(`/models/${modelId}/snapshot.json`, {
+                headers: { Accept: "application/json" },
+            });
+            if (!response.ok) {
+                throw new Error(`Request failed with status ${response.status}`);
+            }
+            const payload = await response.json();
+            const model = payload.model || {};
+            const adjustments = payload.adjustments || [];
+
+            infoContainer.hidden = false;
+            setStatus(model.status);
+            infoKeys.forEach((key) => {
+                if (!fields[key]) {
+                    return;
+                }
+                switch (key) {
+                    case "payment_frequency":
+                        fields[key].textContent = formatFrequency(model[key]);
+                        break;
+                    case "amount_monthly":
+                        fields[key].textContent = formatCurrency(model[key]);
+                        break;
+                    case "start_date":
+                        fields[key].textContent = model.start_date_display || "—";
+                        break;
+                    default:
+                        fields[key].textContent = model[key] || "—";
+                }
+            });
+
+            if (fields.crypto_wallet) {
+                if (model.crypto_wallet) {
+                    fields.crypto_wallet.textContent = model.crypto_wallet;
+                    fields.crypto_wallet.classList.remove("info-value--muted");
+                } else {
+                    fields.crypto_wallet.textContent = "Not provided";
+                    fields.crypto_wallet.classList.add("info-value--muted");
+                }
+            }
+
+            populateAdjustments(adjustments);
+        } catch (error) {
+            console.error(error);
+            resetView();
+            if (fields["adjustment-summary"]) {
+                fields["adjustment-summary"].textContent = "Unable to load model details. Try again.";
+            }
+        }
+    }
+
+    resetView();
+    selectEl.addEventListener("change", handleSelection);
+})();
+</script>
+{% endblock %}
